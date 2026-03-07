@@ -1,1 +1,7 @@
+# File Goal: 
+  # Lists all Python dependencies required to run the project
+  # Uses pinned versions where appropriate (e.g., numpy==1.26.2)
+  # Allows another user to recreate the environment using: pip install -r requirements.txt
 
+pandas>=2.0
+nltk>=3.8
