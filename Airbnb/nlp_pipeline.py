@@ -1,18 +1,26 @@
-# Steps: 
-# load dataset 
-# 1 take input of URL 
-# look URL up in dataset 
-# IF URL is in dataset; grab the description, and ID number 
-# extract keywords
-# extract emotions 
-# return json of keywords, return json of emotions 
+'''
+HOW TO CALL FUNCTION: 
+from Airbnb.nlp_pipeline import analyze_listing_from_url
 
-# Functions needed:
-# main - load dataset, call other functions, take input of URL or description 
-# Extract keywords
-# extract emotions
-# format as json 
+## Unzip the output file prior to running! 
+DATASET_PATH = "Airbnb/data/Output.csv"
+NRC_PATH = "Airbnb/emolex/NRC-Emotion-Lexicon-Wordlevel-v0.92.txt"
 
+# sample listing
+listing_url = "https://www.airbnb.com/rooms/2536175"
+
+keywords_json, emotions_json = analyze_listing_from_url(
+    url=listing_url,
+    dataset_path=DATASET_PATH,
+    nrc_path=NRC_PATH,
+)
+
+print("KEYWORDS JSON")
+print(keywords_json)
+
+print("\nEMOTIONS JSON")
+print(emotions_json)
+'''
 
 # =========================
 # IMPORTS
