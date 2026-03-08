@@ -12,13 +12,11 @@ Approach
 2. EMOTION — Zero-shot NLI:
    Concatenate keywords into a short passage and classify against the emotion
    labels using a zero-shot NLI pipeline (facebook/bart-large-mnli).
-   No hand-crafted anchor phrases needed.
 
 3. AUDIO — Retrieve-then-aggregate:
    Find the top-k tracks in the catalog whose lyric embeddings are most similar
    to the mean keyword embedding (cosine similarity). Average their z-scored
-   audio features to form the target vector. Fully data-driven — no anchor
-   phrases needed.
+   audio features to form the target vector.
 
 4. LOCATION TERMS:
    Keywords whose NLI confidence across all emotion labels is below a threshold
@@ -37,9 +35,12 @@ has not been built, resolve_keywords falls back to returning zero audio targets.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
+from tqdm.notebook import tqdm
 from transformers import pipeline
 
 # ── Sentence-transformer for keyword / lyric embeddings ───────────────────────
@@ -115,9 +116,19 @@ def build_lyric_index(
     if feature_cols is None:
         feature_cols = _AUDIO_FEATURE_COLS
 
-    lyrics = filtered_df[lyrics_col].fillna("").tolist()
-    print(f"Building lyric index for {len(lyrics)} tracks …")
-    _lyric_embs = _embed(lyrics)                          # (n_tracks, dim)
+    lyrics = [
+        str(t)[:512] if isinstance(t, str) else ""
+        for t in filtered_df[lyrics_col].fillna("").tolist()
+    ]
+    batch_size = 256
+    n_batches = math.ceil(len(lyrics) / batch_size)
+    print(f"Building lyric index for {len(lyrics):,} tracks ({n_batches} batches) …")
+    model = _get_model()
+    all_embs = []
+    for i in tqdm(range(n_batches), desc="Embedding lyrics", unit="batch"):
+        batch = lyrics[i * batch_size : (i + 1) * batch_size]
+        all_embs.append(model.encode(batch, normalize_embeddings=True, show_progress_bar=False))
+    _lyric_embs = np.vstack(all_embs)
     _scaled_audio = scaled_df[feature_cols].to_numpy()    # (n_tracks, n_features)
     _feature_cols = list(feature_cols)
     print("Lyric index ready.")
