@@ -279,8 +279,13 @@ def extract_named_entities(text: str) -> dict[str, list[str]]:
     entities: dict[str, list[str]] = {"locations": [], "orgs": [], "misc": []}
     seen = set()
 
-    for chunk in chunks:
-        results = ner(chunk)
+    # Batch all chunks through pipeline at once for efficiency
+    all_results = ner(chunks, batch_size=len(chunks))
+    # If single chunk, wrap in list for uniform handling
+    if chunks and isinstance(all_results[0], dict):
+        all_results = [all_results]
+
+    for results in all_results:
         for ent in results:
             word = ent["word"].strip()
             # Clean up subword tokens

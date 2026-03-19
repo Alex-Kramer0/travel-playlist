@@ -237,11 +237,13 @@ def resolve_keywords(keywords: list[str]) -> dict:
 
     # ── Location terms ─────────────────────────────────────────────────────────
     # A keyword is a location term if its individual NLI max confidence is low.
-    # We classify each keyword separately and flag those below the threshold.
+    # Batch all keywords through the pipeline in one call for efficiency.
     location_terms: list[str] = []
     clf = _get_nli_pipeline()
-    for kw in keywords:
-        result = clf(kw, candidate_labels=EMOTION_LABELS, multi_label=False)
+    results = clf(keywords, candidate_labels=EMOTION_LABELS, multi_label=False, batch_size=len(keywords))
+    if isinstance(results, dict):
+        results = [results]
+    for kw, result in zip(keywords, results):
         max_conf = max(result["scores"])
         if max_conf < _LOCATION_THRESHOLD:
             location_terms.append(kw)
