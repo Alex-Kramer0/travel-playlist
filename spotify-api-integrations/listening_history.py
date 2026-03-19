@@ -13,7 +13,7 @@ from typing import Iterable
 
 import requests
 
-from auth import SpotifyAuthError
+from .auth import SpotifyAuthError
 
 TOP_ARTISTS_URL = "https://api.spotify.com/v1/me/top/artists"
 

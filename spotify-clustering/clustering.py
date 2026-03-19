@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from itertools import product
 from tqdm.auto import tqdm
-from IPython.display import display
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score, davies_bouldin_score

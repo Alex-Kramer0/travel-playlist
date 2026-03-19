@@ -1,3 +1,7 @@
 .DS_Store
 __pycache__
 spotify-clustering/dataset/spotify_dataset_lyrics.csv
+.env
+frontend/node_modules
+backend/venv
+Airbnb/data/Output.csv

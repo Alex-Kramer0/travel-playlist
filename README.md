@@ -1,6 +1,6 @@
 # Travel Playlist
 
-Personalized travel playlists that pair Airbnb stays with emotion- and location-aware Spotify tracks. Users will authenticate with Spotify, drop in an Airbnb listing (URL or description), and receive a curated playlist they can save directly to their account via our Streamlit frontend.
+Personalized travel playlists that pair Airbnb stays with emotion- and location-aware Spotify tracks. Users authenticate with Spotify, drop in an Airbnb listing (URL or description), and receive a curated playlist they can save directly to their account via our React + FastAPI web application.
 
 ## Team
 - Alex Kramer
@@ -16,36 +16,93 @@ Travelers often browse Airbnb listings that convey a mood or local vibe, but tra
 - **Spotify Lyrics & Audio Dataset** (`spotify/dataset/spotify_dataset_lyrics.csv`, 551k rows, 39 raw columns → 21 cleaned). Key columns: lyrics (text), emotion, genre, popularity, standard audio features (danceability, energy, loudness, speechiness, acousticness, instrumentalness, liveness, valence, tempo, duration, explicit, etc.). Loudness converted to floats and track length parsed into seconds.
 - **Airbnb Listings**: Consolidated CSVs (e.g., `Airbnb/Airbnb City Extracts/test-city-1.csv` for Bozeman, MT). Retained fields: id, name, description, neighborhood, property_type, room_type, accommodates, amenities. Companion NLP notebook extracts TF-IDF keywords from listing descriptions.
 
-## Methods & Models
-- **Data Preparation** (`spotify/data_loader.py`): column cleanup, audio feature selection, outlier removal, scaling (`StandardScaler`).
-- **Clustering & Embeddings** (`spotify/clustering.py`, `recommendation/keyword_embedder.py`): k-means clustering on scaled audio features; PCA for visualization; sentence-transformer embeddings (all-MiniLM-L6-v2) to map free-form keywords to emotions, locations, and audio targets.
-- **Recommendation Pipeline** (`recommendation/recommender.py`): multi-layer scoring (lyrics keyword match, emotion cosine similarity, audio similarity, cluster boost) with tunable weights to produce ranked playlists.
+## Architecture
+
+### Backend (FastAPI)
+- **Data Preparation** (`spotify-clustering/data_loader.py`): column cleanup, audio feature selection, outlier removal, scaling (`StandardScaler`).
+- **Clustering & Embeddings** (`spotify-clustering/clustering.py`, `recommendation/keyword_embedder.py`): k-means clustering on scaled audio features; sentence-transformer embeddings (all-MiniLM-L6-v2) to map keywords to emotions and audio targets.
+- **Recommendation Pipeline** (`recommendation/recommender.py`): 4-layer scoring (lyrics keyword match, emotion cosine similarity, audio similarity, cluster boost) with tunable weights.
 - **Spotify API Integrations** (`spotify-api-integrations/`):
-  - `auth.py` PKCE helper for Streamlit-friendly login + token exchange.
-  - `playlists.py` utilities to create playlists and add tracks.
-  - `listening_history.py` (top-artist/genre helper) to derive user genre preferences via `/v1/me/top/artists`.
+  - `auth.py` PKCE OAuth2 flow for secure authentication
+  - `playlists.py` utilities to create playlists and add tracks
+  - `listening_history.py` top-artist/genre helper for user preferences
+- **FastAPI Server** (`backend/`): REST API with routers for auth, recommendations, user data, and playlist management
+
+### Frontend (React + TypeScript)
+- **Vite + React 18**: Modern build tooling and component framework
+- **TailwindCSS + shadcn/ui**: Beautiful, accessible UI components
+- **Zustand**: Lightweight state management for auth and playlist data
+- **React Router**: Client-side routing with protected routes
+- **Axios**: HTTP client for API communication
 
 ## How to Run
-1. **Clone & Environment**
+
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- Spotify Developer Account
+
+### Backend Setup
+1. **Create Python Virtual Environment**
    ```bash
-   git clone <repo-url>
-   cd travel-playlist
-   python3.11 -m venv .venv
-   source .venv/bin/activate
-   pip install pandas scikit-learn matplotlib seaborn nltk sentence-transformers tqdm ipykernel streamlit requests python-dotenv
+   cd backend
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
    ```
-2. **Register a Spotify App** (https://developer.spotify.com/dashboard) and add your redirect URI (e.g., `http://localhost:8501/callback`).
-3. **Create a `.env` file** (or export variables) with:
+
+2. **Configure Environment Variables**
+   Create `backend/.env` file (see `backend/.env.example`):
    ```
-   SPOTIFY_CLIENT_ID=...
-   SPOTIFY_CLIENT_SECRET=...
-   SPOTIFY_REDIRECT_URI=http://localhost:8501/callback
+   SPOTIFY_DATASET_PATH=../spotify-clustering/dataset/spotify_dataset.csv
+   NRC_PATH=../Airbnb/emolex/NRC-Emotion-Lexicon-Wordlevel-v0.92.txt
+   AIRBNB_DATASET_PATH=../Airbnb/data/Output.csv
+   SPOTIFY_CLIENT_ID=your_client_id
+   SPOTIFY_CLIENT_SECRET=your_client_secret
+   SPOTIFY_REDIRECT_URI=http://localhost:5173/callback
+   K_CLUSTERS=8
    ```
-4. **Run Data/Model Notebooks**
-   - `spotify/spotify_clustering.ipynb` for feature prep & clustering diagnostics.
-   - `recommendation/playlist_generation.ipynb` for keyword resolution + recommendation demos.
-5. **Streamlit Frontend (coming online)**
-   - `streamlit run app.py` (placeholder; will orchestrate user login, Airbnb input, playlist preview, and save-to-Spotify actions).
+
+3. **Unzip Airbnb Dataset**
+   ```bash
+   cd Airbnb/data
+   unzip Output.csv.zip
+   ```
+
+4. **Start Backend Server**
+   
+   **Option A: Using the startup script (recommended)**
+   ```bash
+   ./start_backend.sh
+   ```
+   
+   **Option B: Manual command from project root**
+   ```bash
+   source backend/venv/bin/activate
+   export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+   uvicorn backend.main:app --reload --port 8000
+   ```
+   
+   The backend will load the dataset and build indexes on startup (may take 1-2 minutes).
+
+### Frontend Setup
+1. **Install Dependencies**
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+2. **Start Development Server**
+   ```bash
+   npm run dev
+   ```
+   The frontend will be available at `http://localhost:5173`
+
+### Spotify App Configuration
+1. Go to https://developer.spotify.com/dashboard
+2. Create a new app
+3. Add redirect URI: `http://localhost:5173/callback`
+4. Copy Client ID and Client Secret to backend `.env` file
 
 ## Assumptions & Limitations
 - Spotify dataset emotions/genres come from provided labels; quality varies across tracks.
@@ -54,13 +111,18 @@ Travelers often browse Airbnb listings that convey a mood or local vibe, but tra
 - Playlist personalization emphasizes lyrics/emotion alignment; live audio analysis is out-of-scope.
 
 ## Current Progress & Next Steps
-**Progress**
-- Cleaned and scaled Spotify corpus; established clustering + PCA basis.
-- Built keyword embedding resolver and four-layer recommendation engine.
-- Added Spotify auth, playlist, and top-genre helper modules for frontend integration.
+**Completed**
+- Cleaned and scaled Spotify corpus; established clustering + PCA basis
+- Built keyword embedding resolver and four-layer recommendation engine
+- Implemented FastAPI backend with all endpoints (auth, recommend, user, playlist)
+- Created React frontend with modern UI (TailwindCSS + shadcn/ui)
+- Spotify PKCE OAuth2 authentication flow
+- Full playlist generation and save-to-Spotify functionality
 
 **Next Steps**
-1. Implement Streamlit UI: Spotify login, Airbnb input form, playlist preview/download.
-2. Integrate genre + Airbnb keyword signals into recommendation weights.
-3. Dockerize the full stack and deploy to a public endpoint (AWS or similar).
-4. Add automated tests + linting to lock down pipelines before deployment.
+1. Test end-to-end flow with real Spotify credentials
+2. Add error handling and loading states
+3. Implement responsive design for mobile devices
+4. Add automated tests for backend endpoints
+5. Dockerize the full stack for deployment
+6. Deploy to cloud platform (AWS, Vercel, or similar)

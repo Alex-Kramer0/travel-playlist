@@ -29,9 +29,13 @@ import re
 import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
+import importlib
 
-from data_loader import AUDIO_FEATURE_COLS
-from keyword_embedder import resolve_keywords
+# Import from hyphenated directory
+data_loader = importlib.import_module('spotify-clustering.data_loader')
+AUDIO_FEATURE_COLS = data_loader.AUDIO_FEATURE_COLS
+
+from recommendation.keyword_embedder import resolve_keywords
 
 
 _DEFAULT_WEIGHTS = {

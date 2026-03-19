@@ -40,7 +40,7 @@ import math
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 from transformers import pipeline
 
 # ── Sentence-transformer for keyword / lyric embeddings ───────────────────────
@@ -66,7 +66,9 @@ _RETRIEVE_K = 20
 _LOCATION_THRESHOLD = 0.30
 
 # Keys used when the index is unavailable (fallback)
-from data_loader import AUDIO_FEATURE_COLS as _AUDIO_FEATURE_COLS
+import importlib
+_data_loader = importlib.import_module('spotify-clustering.data_loader')
+_AUDIO_FEATURE_COLS = _data_loader.AUDIO_FEATURE_COLS
 
 
 def _get_model() -> SentenceTransformer:

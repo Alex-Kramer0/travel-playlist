@@ -21,9 +21,12 @@ _RAW_TO_CLEAN = {
     "song":            "track_name",
     "text":            "lyrics",
     "Length":          "duration_s",
+    "duration_ms":     "duration_ms",  # Handle milliseconds format
     "emotion":         "emotion",
     "Genre":           "genre",
+    "track_genre":     "genre",  # Alternative genre column name
     "Album":           "album",
+    "album_name":      "album",  # Alternative album column name
     "Release Date":    "release_date",
     "Key":             "key",
     "Tempo":           "tempo",
@@ -69,6 +72,10 @@ def load_spotify(path: str) -> pd.DataFrame:
         df["loudness"] = _parse_loudness(df["loudness"])
     if "duration_s" in df.columns:
         df["duration_s"] = _parse_length(df["duration_s"])
+    
+    # Convert duration_ms to duration_s if present
+    if "duration_ms" in df.columns and "duration_s" not in df.columns:
+        df["duration_s"] = df["duration_ms"] / 1000.0
 
     print(f"Loaded {df.shape[0]} rows, {df.shape[1]} columns from {path}")
     return df

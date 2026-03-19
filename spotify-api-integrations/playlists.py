@@ -12,7 +12,7 @@ from typing import Iterable, Optional
 
 import requests
 
-from auth import SpotifyAuthError
+from .auth import SpotifyAuthError
 
 ME_ENDPOINT = "https://api.spotify.com/v1/me"
 CREATE_PLAYLIST_URL_TEMPLATE = "https://api.spotify.com/v1/users/{user_id}/playlists"
