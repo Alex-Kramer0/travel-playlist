@@ -6,10 +6,13 @@ interface AuthState {
   refreshToken: string | null;
   expiresAt: number | null;
   userProfile: SpotifyUserProfile | null;
+  isGuest: boolean;
   setTokens: (tokens: SpotifyToken) => void;
   setUserProfile: (profile: SpotifyUserProfile) => void;
+  setGuest: () => void;
   logout: () => void;
   isAuthenticated: () => boolean;
+  canAccess: () => boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -17,21 +20,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refreshToken: null,
   expiresAt: null,
   userProfile: null,
+  isGuest: false,
 
   setTokens: (tokens: SpotifyToken) => {
     set({
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       expiresAt: tokens.expires_at,
+      isGuest: false,
     });
     
     // Persist to sessionStorage
     sessionStorage.setItem('spotify_token', JSON.stringify(tokens));
+    sessionStorage.removeItem('guest_mode');
   },
 
   setUserProfile: (profile: SpotifyUserProfile) => {
     set({ userProfile: profile });
     sessionStorage.setItem('spotify_profile', JSON.stringify(profile));
+  },
+
+  setGuest: () => {
+    set({ isGuest: true });
+    sessionStorage.setItem('guest_mode', 'true');
   },
 
   logout: () => {
@@ -40,15 +51,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       refreshToken: null,
       expiresAt: null,
       userProfile: null,
+      isGuest: false,
     });
     sessionStorage.removeItem('spotify_token');
     sessionStorage.removeItem('spotify_profile');
+    sessionStorage.removeItem('guest_mode');
   },
 
   isAuthenticated: () => {
     const state = get();
     if (!state.accessToken || !state.expiresAt) return false;
     return Date.now() / 1000 < state.expiresAt;
+  },
+
+  canAccess: () => {
+    const state = get();
+    return state.isGuest || state.isAuthenticated();
   },
 }));
 
@@ -73,5 +91,10 @@ export const rehydrateAuth = () => {
     } catch (e) {
       console.error('Failed to rehydrate user profile', e);
     }
+  }
+
+  // Rehydrate guest mode
+  if (sessionStorage.getItem('guest_mode') === 'true') {
+    useAuthStore.setState({ isGuest: true });
   }
 };

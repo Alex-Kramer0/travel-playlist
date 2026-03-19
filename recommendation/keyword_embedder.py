@@ -35,7 +35,10 @@ has not been built, resolve_keywords falls back to returning zero audio targets.
 
 from __future__ import annotations
 
+import hashlib
 import math
+import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -122,6 +125,25 @@ def build_lyric_index(
         str(t)[:512] if isinstance(t, str) else ""
         for t in filtered_df[lyrics_col].fillna("").tolist()
     ]
+
+    # ── Disk cache logic ────────────────────────────────────────────────────
+    cache_dir = Path(__file__).resolve().parent / ".cache"
+    cache_dir.mkdir(exist_ok=True)
+
+    # Hash based on row count + first/last lyrics to detect dataset changes
+    hash_input = f"{len(lyrics)}|{lyrics[0][:64]}|{lyrics[-1][:64]}|{_MODEL_NAME}"
+    dataset_hash = hashlib.sha256(hash_input.encode()).hexdigest()[:16]
+    cache_path = cache_dir / f"lyric_embs_{dataset_hash}.npy"
+
+    if cache_path.exists():
+        print(f"Loading cached lyric embeddings from {cache_path}")
+        _lyric_embs = np.load(cache_path)
+        _scaled_audio = scaled_df[feature_cols].to_numpy()
+        _feature_cols = list(feature_cols)
+        print("Lyric index ready (loaded from cache).")
+        return
+    # ── End cache logic ─────────────────────────────────────────────────────
+
     batch_size = 256
     n_batches = math.ceil(len(lyrics) / batch_size)
     print(f"Building lyric index for {len(lyrics):,} tracks ({n_batches} batches) …")
@@ -131,6 +153,11 @@ def build_lyric_index(
         batch = lyrics[i * batch_size : (i + 1) * batch_size]
         all_embs.append(model.encode(batch, normalize_embeddings=True, show_progress_bar=False))
     _lyric_embs = np.vstack(all_embs)
+
+    # Save to cache for next startup
+    np.save(cache_path, _lyric_embs)
+    print(f"Saved lyric embeddings to {cache_path}")
+
     _scaled_audio = scaled_df[feature_cols].to_numpy()    # (n_tracks, n_features)
     _feature_cols = list(feature_cols)
     print("Lyric index ready.")

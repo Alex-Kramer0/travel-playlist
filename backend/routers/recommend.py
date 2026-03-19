@@ -17,6 +17,7 @@ from backend.models import (
 )
 from recommendation import recommender, keyword_embedder
 from Airbnb import nlp_pipeline
+from Airbnb.airbnb_keyword_helper import enhance_keywords
 
 router = APIRouter()
 
@@ -42,6 +43,8 @@ def _build_response(
             score_emotion=float(row["score_emotion"]),
             score_audio=float(row["score_audio"]),
             score_cluster=float(row["score_cluster"]),
+            score_artist=float(row.get("score_artist", 0.0)),
+            matched_terms=row.get("matched_terms", []),
             danceability=float(row["danceability"]),
             energy=float(row["energy"]),
             loudness=float(row["loudness"]),
@@ -79,18 +82,32 @@ async def recommend_from_keywords(request: RecommendFromKeywordsRequest):
         raise HTTPException(status_code=400, detail="Keywords list cannot be empty")
     
     try:
+        # Detect location terms from user-provided keywords via NER
+        from Airbnb.airbnb_keyword_helper import extract_named_entities
+        kw_text = ", ".join(request.keywords)
+        entities = extract_named_entities(kw_text)
+        location_terms = list({
+            t.lower().strip(): t
+            for t in entities["locations"] + entities["orgs"] + entities["misc"]
+        }.values())
+        
+        print(f"Keywords: {request.keywords}")
+        print(f"Location terms (NER): {location_terms}")
+        
         weights = request.weights.model_dump() if request.weights else None
         
         # Get resolved keywords for response
         resolved = keyword_embedder.resolve_keywords(request.keywords)
         
-        # Generate recommendations
+        # Generate recommendations (pass NER location terms for lyrics search)
         tracks_df = recommender.recommend(
             keywords=request.keywords,
             df=state.filtered_df,
             scaled_df=state.scaled_df,
             top_n=request.top_n,
             weights=weights,
+            explicit_location_terms=location_terms,
+            user_top_artists=request.user_top_artists,
         )
         
         return _build_response(tracks_df, request.keywords, resolved)
@@ -113,8 +130,22 @@ async def recommend_from_description(request: RecommendFromDescriptionRequest):
         raise HTTPException(status_code=400, detail="Description cannot be empty")
     
     try:
-        # Extract keywords from description
-        keywords = nlp_pipeline.extract_vibe_keywords(request.description, top_n=10)
+        # Extract base keywords from description
+        base_keywords = nlp_pipeline.extract_vibe_keywords(request.description, top_n=10)
+        
+        # Enhance with NER, vibe scoring, semantic filtering
+        listing_data = {
+            "name": None,
+            "description": request.description,
+            "neighbourhood_cleansed": None,
+        }
+        enhanced = enhance_keywords(
+            listing_data=listing_data,
+            nlp_keywords=base_keywords,
+            top_n=12,
+        )
+        keywords = enhanced["keywords"]
+        location_terms = enhanced["location_terms"]
         
         if not keywords:
             raise HTTPException(
@@ -122,10 +153,13 @@ async def recommend_from_description(request: RecommendFromDescriptionRequest):
                 detail="Could not extract meaningful keywords from description"
             )
         
+        print(f"Enhanced keywords: {keywords}")
+        print(f"Location terms: {location_terms}")
+        
         # Get resolved keywords for response
         resolved = keyword_embedder.resolve_keywords(keywords)
         
-        # Generate recommendations
+        # Generate recommendations (pass location terms directly for lyrics search)
         weights = request.weights.model_dump() if request.weights else None
         tracks_df = recommender.recommend(
             keywords=keywords,
@@ -133,6 +167,8 @@ async def recommend_from_description(request: RecommendFromDescriptionRequest):
             scaled_df=state.scaled_df,
             top_n=request.top_n,
             weights=weights,
+            explicit_location_terms=location_terms,
+            user_top_artists=request.user_top_artists,
         )
         
         return _build_response(tracks_df, keywords, resolved)
@@ -171,24 +207,51 @@ async def recommend_from_url(request: RecommendFromUrlRequest):
                 detail="NRC_PATH environment variable not configured"
             )
         
-        # Analyze listing from URL
+        # Analyze listing from URL (base extraction)
         keyword_json, emotion_json = nlp_pipeline.analyze_listing_from_url(
             url=request.url,
             dataset_path=airbnb_dataset_path,
             nrc_path=nrc_path,
         )
         
-        keywords = keyword_json.get("keywords", [])
+        base_keywords = keyword_json.get("keywords", [])
+        
+        # Enhance keywords with NER, vibe scoring, and semantic filtering
+        listing_data = {
+            "name": keyword_json.get("name"),
+            "description": None,  # We need the raw description
+            "neighbourhood_cleansed": keyword_json.get("neighbourhood_cleansed"),
+        }
+        # Re-fetch description from the dataset for the helper
+        try:
+            listings_df = nlp_pipeline.load_listing_dataset(airbnb_dataset_path)
+            listing_row = nlp_pipeline.get_listing_by_url(request.url, listings_df)
+            listing_data["description"] = listing_row.get("description")
+            listing_data["name"] = listing_row.get("name")
+        except Exception:
+            pass  # Fall back to base keywords if lookup fails
+        
+        enhanced = enhance_keywords(
+            listing_data=listing_data,
+            nlp_keywords=base_keywords,
+            top_n=12,
+        )
+        keywords = enhanced["keywords"]
+        location_terms = enhanced["location_terms"]
+        
         if not keywords:
             raise HTTPException(
                 status_code=400,
                 detail="Could not extract keywords from listing"
             )
         
+        print(f"Enhanced keywords: {keywords}")
+        print(f"Location terms: {location_terms}")
+        
         # Get resolved keywords for response
         resolved = keyword_embedder.resolve_keywords(keywords)
         
-        # Generate recommendations
+        # Generate recommendations (pass location terms directly for lyrics search)
         weights = request.weights.model_dump() if request.weights else None
         tracks_df = recommender.recommend(
             keywords=keywords,
@@ -196,6 +259,8 @@ async def recommend_from_url(request: RecommendFromUrlRequest):
             scaled_df=state.scaled_df,
             top_n=request.top_n,
             weights=weights,
+            explicit_location_terms=location_terms,
+            user_top_artists=request.user_top_artists,
         )
         
         return _build_response(tracks_df, keywords, resolved)

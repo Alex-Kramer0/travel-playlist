@@ -1,7 +1,7 @@
 """
 recommender.py
 --------------
-4-layer keyword-to-playlist recommendation pipeline.
+5-layer keyword-to-playlist recommendation pipeline.
 
 Layer 1 — Lyrics keyword match
     Location/place terms (e.g. "new york", "paris") are searched directly
@@ -20,7 +20,11 @@ Layer 4 — Cluster boost
     The K-means cluster whose centroid is closest (L2) to the target vector
     receives a score multiplier. Tracks in that cluster get a boost.
 
-Final score = w1*lyrics + w2*emotion + w3*audio_cosine + w4*cluster_boost
+Layer 5 — Artist familiarity
+    If the user's Spotify top artists are provided, tracks by those artists
+    get a boost.
+
+Final score = w1*lyrics + w2*emotion + w3*audio + w4*cluster + w5*artist
 """
 
 from __future__ import annotations
@@ -39,10 +43,11 @@ from recommendation.keyword_embedder import resolve_keywords
 
 
 _DEFAULT_WEIGHTS = {
-    "lyrics": 0.35,
-    "emotion": 0.25,
-    "audio": 0.25,
-    "cluster": 0.15,
+    "lyrics": 0.30,
+    "emotion": 0.20,
+    "audio": 0.20,
+    "cluster": 0.10,
+    "artist": 0.20,
 }
 
 
@@ -50,23 +55,25 @@ def _lyrics_score(
     df: pd.DataFrame,
     location_terms: list[str],
     lyrics_col: str = "lyrics",
-) -> np.ndarray:
+) -> tuple[np.ndarray, list[list[str]]]:
     """
     Returns a score in [0, 1] for each track based on how many location
-    terms appear in its lyrics. Multiple matches accumulate additively,
-    then the result is clipped to 1.
+    terms appear in its lyrics, plus a list of which terms matched.
     """
     scores = np.zeros(len(df), dtype=float)
+    matched: list[list[str]] = [[] for _ in range(len(df))]
     if not location_terms or lyrics_col not in df.columns:
-        return scores
+        return scores, matched
 
     lyrics_lower = df[lyrics_col].fillna("").str.lower()
     for term in location_terms:
         pattern = re.compile(r"\b" + re.escape(term.lower()) + r"\b")
-        matches = lyrics_lower.str.contains(pattern, regex=True).to_numpy(dtype=float)
-        scores += matches
+        mask = lyrics_lower.str.contains(pattern, regex=True).to_numpy(dtype=bool)
+        scores += mask.astype(float)
+        for idx in np.where(mask)[0]:
+            matched[idx].append(term)
 
-    return np.clip(scores, 0.0, 1.0)
+    return np.clip(scores, 0.0, 1.0), matched
 
 
 def _emotion_score(
@@ -146,6 +153,29 @@ def _cluster_boost_score(
     return scores
 
 
+def _artist_familiarity_score(
+    df: pd.DataFrame,
+    user_top_artists: list[str] | None,
+    artist_col: str = "artist",
+) -> np.ndarray:
+    """
+    Returns 1.0 for tracks whose artist matches any of the user's top artists,
+    0.0 otherwise. Matching is case-insensitive substring to handle
+    compilation entries like 'Artist1, Artist2'.
+    """
+    scores = np.zeros(len(df), dtype=float)
+    if not user_top_artists or artist_col not in df.columns:
+        return scores
+
+    artist_lower = df[artist_col].fillna("").str.lower()
+    for name in user_top_artists:
+        pattern = re.compile(re.escape(name.lower()))
+        matches = artist_lower.str.contains(pattern, regex=True).to_numpy(dtype=float)
+        scores = np.maximum(scores, matches)
+
+    return scores
+
+
 def recommend(
     keywords: list[str],
     df: pd.DataFrame,
@@ -157,6 +187,8 @@ def recommend(
     emotion_col: str = "emotion",
     feature_cols: list[str] = AUDIO_FEATURE_COLS,
     deduplicate: bool = True,
+    explicit_location_terms: list[str] | None = None,
+    user_top_artists: list[str] | None = None,
 ) -> pd.DataFrame:
     """
     Recommend tracks given a list of Airbnb-style keywords.
@@ -174,12 +206,16 @@ def recommend(
     feature_cols: audio feature columns to use for scoring
     deduplicate : if True, keep only the highest-scoring version of each
                   (track_name, artist) pair
+    explicit_location_terms : if provided, these location terms are used
+                  directly for lyrics search (merged with NLI-detected ones)
+    user_top_artists : if provided, tracks by these artists get a familiarity
+                  boost in the scoring
 
     Returns
     -------
     DataFrame with columns: track_name, artist, genre, emotion, cluster,
     score, score_lyrics, score_emotion, score_audio, score_cluster,
-    + all audio feature columns
+    score_artist, + all audio feature columns
     """
     w = {**_DEFAULT_WEIGHTS, **(weights or {})}
 
@@ -188,16 +224,26 @@ def recommend(
     audio_target = resolved["audio_target"]
     location_terms = resolved["location_terms"]
 
-    s_lyrics = _lyrics_score(df, location_terms, lyrics_col)
+    # Merge explicit location terms (from NER) with NLI-detected ones
+    if explicit_location_terms:
+        seen = {t.lower() for t in location_terms}
+        for t in explicit_location_terms:
+            if t.lower() not in seen:
+                location_terms.append(t)
+                seen.add(t.lower())
+
+    s_lyrics, lyrics_matched = _lyrics_score(df, location_terms, lyrics_col)
     s_emotion = _emotion_score(df, emotions, emotion_col)
     s_audio = _audio_cosine_score(scaled_df, audio_target, feature_cols)
     s_cluster = _cluster_boost_score(df, scaled_df, audio_target, cluster_col, feature_cols)
+    s_artist = _artist_familiarity_score(df, user_top_artists)
 
     total = (
         w["lyrics"] * s_lyrics
         + w["emotion"] * s_emotion
         + w["audio"] * s_audio
         + w["cluster"] * s_cluster
+        + w.get("artist", 0.0) * s_artist
     )
 
     result = df[["track_name", "artist", "genre", "emotion", cluster_col]].copy()
@@ -206,6 +252,8 @@ def recommend(
     result["score_emotion"] = s_emotion
     result["score_audio"] = s_audio
     result["score_cluster"] = s_cluster
+    result["score_artist"] = s_artist
+    result["matched_terms"] = lyrics_matched
     for col in feature_cols:
         if col in df.columns:
             result[col] = df[col].values

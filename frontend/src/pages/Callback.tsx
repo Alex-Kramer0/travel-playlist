@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '@/api/auth';
 import { userApi } from '@/api/user';
@@ -10,12 +10,12 @@ export default function Callback() {
   const { setTokens, setUserProfile } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
 
+  const executedRef = useRef(false);
+
   useEffect(() => {
-    let executed = false;
-    
     const handleCallback = async () => {
-      if (executed) return;
-      executed = true;
+      if (executedRef.current) return;
+      executedRef.current = true;
       
       try {
         // Parse URL parameters

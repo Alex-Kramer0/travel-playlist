@@ -9,6 +9,8 @@ export interface Track {
   score_emotion: number;
   score_audio: number;
   score_cluster: number;
+  score_artist: number;
+  matched_terms: string[];
   danceability: number;
   energy: number;
   loudness: number;
@@ -55,4 +57,5 @@ export interface RecommendWeights {
   emotion: number;
   audio: number;
   cluster: number;
+  artist: number;
 }

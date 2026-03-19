@@ -112,4 +112,11 @@ async def save_playlist(request: PlaylistSaveRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        detail = str(e)
+        if "403" in detail:
+            raise HTTPException(
+                status_code=403,
+                detail="Spotify denied playlist creation. Your token may be missing the required scopes. "
+                       "Revoke the app at https://www.spotify.com/account/apps/ then re-authenticate."
+            )
+        raise HTTPException(status_code=500, detail=detail)

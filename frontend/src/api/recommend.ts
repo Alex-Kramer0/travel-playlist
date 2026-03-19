@@ -5,18 +5,21 @@ export interface RecommendFromKeywordsRequest {
   keywords: string[];
   top_n?: number;
   weights?: RecommendWeights;
+  user_top_artists?: string[];
 }
 
 export interface RecommendFromDescriptionRequest {
   description: string;
   top_n?: number;
   weights?: RecommendWeights;
+  user_top_artists?: string[];
 }
 
 export interface RecommendFromUrlRequest {
   url: string;
   top_n?: number;
   weights?: RecommendWeights;
+  user_top_artists?: string[];
 }
 
 export const recommendApi = {

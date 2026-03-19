@@ -5,6 +5,10 @@ export interface UserGenresResponse {
   genres: [string, number][];
 }
 
+export interface UserTopArtistsResponse {
+  artists: string[];
+}
+
 export const userApi = {
   async getProfile(accessToken: string): Promise<SpotifyUserProfile> {
     const response = await apiClient.get<SpotifyUserProfile>('/api/user/profile', {
@@ -17,6 +21,18 @@ export const userApi = {
 
   async getGenres(accessToken: string, timeRange: string = 'medium_term'): Promise<UserGenresResponse> {
     const response = await apiClient.get<UserGenresResponse>('/api/user/genres', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      params: {
+        time_range: timeRange,
+      },
+    });
+    return response.data;
+  },
+
+  async getTopArtists(accessToken: string, timeRange: string = 'medium_term'): Promise<UserTopArtistsResponse> {
+    const response = await apiClient.get<UserTopArtistsResponse>('/api/user/top-artists', {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },

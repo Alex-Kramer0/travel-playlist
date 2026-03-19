@@ -5,3 +5,4 @@ spotify-clustering/dataset/spotify_dataset_lyrics.csv
 frontend/node_modules
 backend/venv
 Airbnb/data/Output.csv
+recommendation/.cache

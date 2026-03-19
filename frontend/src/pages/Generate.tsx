@@ -11,7 +11,7 @@ type InputMode = 'url' | 'description' | 'keywords';
 
 export default function Generate() {
   const navigate = useNavigate();
-  const { accessToken, userProfile, logout } = useAuthStore();
+  const { accessToken, userProfile, isGuest, logout } = useAuthStore();
   const { setResult, setLoading } = usePlaylistStore();
   
   const [inputMode, setInputMode] = useState<InputMode>('url');
@@ -21,27 +21,28 @@ export default function Generate() {
   const [topN, setTopN] = useState(20);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [weights, setWeights] = useState<RecommendWeights>({
-    lyrics: 0.35,
-    emotion: 0.25,
-    audio: 0.25,
-    cluster: 0.15,
+    lyrics: 0.30,
+    emotion: 0.20,
+    audio: 0.20,
+    cluster: 0.10,
+    artist: 0.20,
   });
-  const [genres, setGenres] = useState<[string, number][]>([]);
+  const [topArtists, setTopArtists] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchGenres = async () => {
+    const fetchTopArtists = async () => {
       if (accessToken) {
         try {
-          const response = await userApi.getGenres(accessToken);
-          setGenres(response.genres);
+          const response = await userApi.getTopArtists(accessToken);
+          setTopArtists(response.artists);
         } catch (err) {
-          console.error('Failed to fetch genres:', err);
+          console.error('Failed to fetch top artists:', err);
         }
       }
     };
-    fetchGenres();
+    fetchTopArtists();
   }, [accessToken]);
 
   const handleWeightChange = (key: keyof RecommendWeights, value: number) => {
@@ -51,10 +52,13 @@ export default function Generate() {
   const normalizeWeights = () => {
     const total = Object.values(weights).reduce((sum, val) => sum + val, 0);
     if (total === 0) return;
-    const normalized = Object.fromEntries(
-      Object.entries(weights).map(([key, val]) => [key, val / total])
-    ) as RecommendWeights;
-    setWeights(normalized);
+    setWeights({
+      lyrics: weights.lyrics / total,
+      emotion: weights.emotion / total,
+      audio: weights.audio / total,
+      cluster: weights.cluster / total,
+      artist: weights.artist / total,
+    });
   };
 
   const handleSubmit = async () => {
@@ -74,6 +78,7 @@ export default function Generate() {
           url: urlInput.trim(),
           top_n: topN,
           weights: showAdvanced ? weights : undefined,
+          user_top_artists: topArtists.length > 0 ? topArtists : undefined,
         });
       } else if (inputMode === 'description') {
         if (!descriptionInput.trim()) {
@@ -83,6 +88,7 @@ export default function Generate() {
           description: descriptionInput.trim(),
           top_n: topN,
           weights: showAdvanced ? weights : undefined,
+          user_top_artists: topArtists.length > 0 ? topArtists : undefined,
         });
       } else {
         const keywords = keywordsInput
@@ -96,6 +102,7 @@ export default function Generate() {
           keywords,
           top_n: topN,
           weights: showAdvanced ? weights : undefined,
+          user_top_artists: topArtists.length > 0 ? topArtists : undefined,
         });
       }
 
@@ -126,7 +133,7 @@ export default function Generate() {
             <span className="font-bold text-xl">Travel Playlist</span>
           </div>
           <div className="flex items-center gap-4">
-            {userProfile && (
+            {userProfile ? (
               <div className="flex items-center gap-2">
                 {userProfile.images[0] && (
                   <img
@@ -137,19 +144,33 @@ export default function Generate() {
                 )}
                 <span className="text-sm font-medium">{userProfile.display_name}</span>
               </div>
-            )}
+            ) : isGuest ? (
+              <span className="text-sm text-gray-500 italic">Guest Mode</span>
+            ) : null}
             <button
               onClick={logout}
               className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
             >
               <LogOut className="w-4 h-4" />
-              Logout
+              {isGuest ? 'Back to Home' : 'Logout'}
             </button>
           </div>
         </div>
       </nav>
 
       <div className="container mx-auto px-4 py-8">
+        {isGuest && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+            <span className="text-amber-500 text-lg">&#9432;</span>
+            <div>
+              <p className="text-amber-800 text-sm font-medium">You're using guest mode</p>
+              <p className="text-amber-700 text-xs mt-1">
+                Recommendations won't be personalized to your listening history and you won't be able to save playlists to Spotify.
+                Connect your Spotify account for the full experience.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Panel - Input */}
           <div className="lg:col-span-2">
@@ -325,15 +346,17 @@ export default function Generate() {
           <div className="space-y-6">
             {/* User Genres */}
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="font-semibold text-lg mb-4">Your Top Genres</h3>
-              {genres.length > 0 ? (
+              <h3 className="font-semibold text-lg mb-4">Your Top Artists</h3>
+              {isGuest ? (
+                <p className="text-gray-500 text-sm">Connect Spotify to see your top artists and get personalized recommendations.</p>
+              ) : topArtists.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {genres.map(([genre, count]) => (
+                  {topArtists.map((artist) => (
                     <span
-                      key={genre}
+                      key={artist}
                       className="px-3 py-1 bg-primary/10 text-primary text-sm rounded-full"
                     >
-                      {genre} ({count})
+                      {artist}
                     </span>
                   ))}
                 </div>
@@ -348,7 +371,7 @@ export default function Generate() {
               <ol className="space-y-3 text-sm text-gray-600">
                 <li className="flex gap-2">
                   <span className="font-semibold text-primary">1.</span>
-                  <span>We extract keywords and emotions from your input</span>
+                  <span>We extract keywords, locations, and emotions from your input</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="font-semibold text-primary">2.</span>
@@ -356,10 +379,14 @@ export default function Generate() {
                 </li>
                 <li className="flex gap-2">
                   <span className="font-semibold text-primary">3.</span>
-                  <span>Tracks are scored across 4 layers: lyrics, emotion, audio, cluster</span>
+                  <span>Tracks are scored across 5 layers: lyrics match, emotion, audio similarity, cluster, and artist familiarity</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="font-semibold text-primary">4.</span>
+                  <span>Your Spotify listening history boosts tracks by artists you love</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold text-primary">5.</span>
                   <span>Top matches are ranked and ready to save to Spotify</span>
                 </li>
               </ol>

@@ -10,7 +10,7 @@ import requests
 
 # Import from hyphenated directory using importlib
 listening_history = importlib.import_module('spotify-api-integrations.listening_history')
-from backend.models import SpotifyUserProfile, UserGenresResponse
+from backend.models import SpotifyUserProfile, UserGenresResponse, UserTopArtistsResponse
 
 router = APIRouter()
 
@@ -95,6 +95,43 @@ async def get_user_genres(
         )
         
         return UserGenresResponse(genres=genres)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/top-artists", response_model=UserTopArtistsResponse)
+async def get_user_top_artists(
+    authorization: str = Header(...),
+    time_range: str = "medium_term",
+):
+    """
+    Returns the user's top artist names derived from their listening history.
+    
+    Query params:
+    - time_range: short_term | medium_term | long_term
+    """
+    try:
+        if not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Invalid authorization header format")
+        
+        access_token = authorization.replace("Bearer ", "")
+        
+        if time_range not in ["short_term", "medium_term", "long_term"]:
+            raise HTTPException(
+                status_code=400,
+                detail="time_range must be one of: short_term, medium_term, long_term"
+            )
+        
+        artists = listening_history.get_top_artist_names(
+            access_token=access_token,
+            time_range=time_range,
+            limit_artists=20,
+        )
+        
+        return UserTopArtistsResponse(artists=artists)
     
     except HTTPException:
         raise

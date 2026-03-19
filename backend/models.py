@@ -33,28 +33,32 @@ class SpotifyTokenResponse(BaseModel):
 # ── Recommend schemas ─────────────────────────────────────────────────────────
 
 class RecommendWeights(BaseModel):
-    lyrics: float = 0.35
-    emotion: float = 0.25
-    audio: float = 0.25
-    cluster: float = 0.15
+    lyrics: float = 0.30
+    emotion: float = 0.20
+    audio: float = 0.20
+    cluster: float = 0.10
+    artist: float = 0.20
 
 
 class RecommendFromKeywordsRequest(BaseModel):
     keywords: list[str]
     top_n: int = 20
     weights: Optional[RecommendWeights] = None
+    user_top_artists: Optional[list[str]] = None
 
 
 class RecommendFromDescriptionRequest(BaseModel):
     description: str
     top_n: int = 20
     weights: Optional[RecommendWeights] = None
+    user_top_artists: Optional[list[str]] = None
 
 
 class RecommendFromUrlRequest(BaseModel):
     url: str
     top_n: int = 20
     weights: Optional[RecommendWeights] = None
+    user_top_artists: Optional[list[str]] = None
 
 
 class Track(BaseModel):
@@ -68,6 +72,8 @@ class Track(BaseModel):
     score_emotion: float
     score_audio: float
     score_cluster: float
+    score_artist: float
+    matched_terms: list[str] = []
     danceability: float
     energy: float
     loudness: float
@@ -105,6 +111,10 @@ class SpotifyUserProfile(BaseModel):
 
 class UserGenresResponse(BaseModel):
     genres: list[list]  # list of [genre_name, count] pairs
+
+
+class UserTopArtistsResponse(BaseModel):
+    artists: list[str]
 
 
 # ── Playlist schemas ──────────────────────────────────────────────────────────

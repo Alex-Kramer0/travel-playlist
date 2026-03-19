@@ -7,9 +7,9 @@ import Generate from './pages/Generate';
 import Results from './pages/Results';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated());
+  const canAccess = useAuthStore((state) => state.canAccess());
   
-  if (!isAuthenticated) {
+  if (!canAccess) {
     return <Navigate to="/" replace />;
   }
   

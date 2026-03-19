@@ -287,7 +287,9 @@ export default function Results() {
 }
 
 function TrackCard({ track, index }: { track: Track; index: number }) {
+  const [showDetails, setShowDetails] = useState(false);
   const emotionColor = EMOTION_COLORS[track.emotion] || 'bg-gray-100 text-gray-800';
+  const hasMatchedTerms = track.matched_terms && track.matched_terms.length > 0;
   
   return (
     <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -321,7 +323,33 @@ function TrackCard({ track, index }: { track: Track; index: number }) {
         <ScoreBar label="Emotion" value={track.score_emotion} color="bg-purple-500" />
         <ScoreBar label="Audio" value={track.score_audio} color="bg-green-500" />
         <ScoreBar label="Cluster" value={track.score_cluster} color="bg-orange-500" />
+        <ScoreBar label="Artist" value={track.score_artist} color="bg-pink-500" />
       </div>
+
+      {/* Matched Terms (collapsible) */}
+      {hasMatchedTerms && (
+        <div className="mt-2">
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+          >
+            <span>{showDetails ? '▼' : '▶'}</span>
+            Matched lyrics terms ({track.matched_terms.length})
+          </button>
+          {showDetails && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {track.matched_terms.map((term) => (
+                <span
+                  key={term}
+                  className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200"
+                >
+                  {term}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

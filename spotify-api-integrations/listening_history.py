@@ -71,6 +71,15 @@ def get_top_genres(
         timeout=timeout,
     )
     items: Iterable[dict] = data.get("items", [])
+
+    # Debug: print top artists and their genres
+    print(f"\n=== Top Artists ({time_range}) ===")
+    for i, artist in enumerate(items):
+        name = artist.get("name", "unknown")
+        genres = artist.get("genres", [])
+        print(f"  {i+1}. {name} — genres: {genres}")
+    print("===\n")
+
     counter: Counter[str] = Counter()
     for artist in items:
         for genre in artist.get("genres", []):
@@ -78,3 +87,22 @@ def get_top_genres(
                 counter[genre.lower()] += 1
 
     return counter.most_common(top_n)
+
+
+def get_top_artist_names(
+    access_token: str,
+    *,
+    limit_artists: int = 20,
+    time_range: str = "medium_term",
+    timeout: int = 10,
+) -> list[str]:
+    """Return the names of the user's top artists."""
+
+    data = get_top_artists(
+        access_token,
+        limit=limit_artists,
+        time_range=time_range,
+        timeout=timeout,
+    )
+    items: Iterable[dict] = data.get("items", [])
+    return [artist["name"] for artist in items if artist.get("name")]
