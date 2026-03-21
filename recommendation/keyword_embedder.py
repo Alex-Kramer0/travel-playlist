@@ -40,7 +40,7 @@ import math
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
-from tqdm.notebook import tqdm
+from tqdm.auto import tqdm
 from transformers import pipeline
 
 # ── Sentence-transformer for keyword / lyric embeddings ───────────────────────

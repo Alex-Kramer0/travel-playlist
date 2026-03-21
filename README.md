@@ -26,41 +26,66 @@ Travelers often browse Airbnb listings that convey a mood or local vibe, but tra
   - `listening_history.py` (top-artist/genre helper) to derive user genre preferences via `/v1/me/top/artists`.
 
 ## How to Run
-1. **Clone & Environment**
-   ```bash
-   git clone <repo-url>
-   cd travel-playlist
-   python3.11 -m venv .venv
-   source .venv/bin/activate
-   pip install pandas scikit-learn matplotlib seaborn nltk sentence-transformers tqdm ipykernel streamlit requests python-dotenv
-   ```
-2. **Register a Spotify App** (https://developer.spotify.com/dashboard) and add your redirect URI (e.g., `http://localhost:8501/callback`).
-3. **Create a `.env` file** (or export variables) with:
-   ```
-   SPOTIFY_CLIENT_ID=...
-   SPOTIFY_CLIENT_SECRET=...
-   SPOTIFY_REDIRECT_URI=http://localhost:8501/callback
-   ```
-4. **Run Data/Model Notebooks**
-   - `spotify/spotify_clustering.ipynb` for feature prep & clustering diagnostics.
-   - `recommendation/playlist_generation.ipynb` for keyword resolution + recommendation demos.
-5. **Streamlit Frontend (coming online)**
-   - `streamlit run app.py` (placeholder; will orchestrate user login, Airbnb input, playlist preview, and save-to-Spotify actions).
+
+### 1. Clone & set up the environment
+```bash
+git clone <repo-url>
+cd travel-playlist
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Register a Spotify App
+Go to https://developer.spotify.com/dashboard and create an app. Under **Settings → Redirect URIs**, add:
+```
+http://127.0.0.1:8501
+```
+> **Note:** Spotify does not allow `localhost` — use `127.0.0.1` explicitly.
+
+### 3. Configure environment variables
+Copy `.env.example` to `.env` and fill in your credentials:
+```bash
+cp .env.example .env
+```
+```
+SPOTIFY_CLIENT_ID=your_client_id
+SPOTIFY_CLIENT_SECRET=your_client_secret
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:8501
+```
+> `.env` is gitignored and must never be committed.
+
+### 4. (Optional) Run data/model notebooks
+- `spotify-clustering/spotify_clustering.ipynb` — feature prep, k-means clustering, PCA diagnostics.
+- `recommendation/playlist_generation.ipynb` — keyword resolution + end-to-end recommendation demo.
+
+### 5. Start the Streamlit app
+```bash
+.venv/bin/streamlit run app.py
+```
+The app will be available at **http://127.0.0.1:8501**.
+
+From the homepage you can:
+- **Connect to Spotify** — OAuth flow (PKCE); grants permission to create playlists in your account.
+- **Continue without Spotify** — generate playlists and download as CSV without authenticating.
+
+Then navigate to **Generate Playlist**, paste an Airbnb listing URL, and click **Generate**.
 
 ## Assumptions & Limitations
 - Spotify dataset emotions/genres come from provided labels; quality varies across tracks.
 - Airbnb NLP currently tuned on a single test city; broader generalization requires more listings.
-- Tokens are stored in-session for demos; long-term deployments need encrypted storage.
+- Tokens are stored in-session only; long-term deployments need encrypted persistent storage.
 - Playlist personalization emphasizes lyrics/emotion alignment; live audio analysis is out-of-scope.
+- The Spotify app must be in **Development Mode** with your account email added as a registered user (up to 25 users supported without going through the Spotify quota extension process).
 
 ## Current Progress & Next Steps
 **Progress**
-- Cleaned and scaled Spotify corpus; established clustering + PCA basis.
-- Built keyword embedding resolver and four-layer recommendation engine.
-- Added Spotify auth, playlist, and top-genre helper modules for frontend integration.
+- Cleaned and scaled Spotify corpus (551k tracks); established clustering + PCA basis.
+- Built keyword embedding resolver and four-layer recommendation engine (lyrics, emotion, audio, cluster).
+- Implemented Spotify OAuth 2.0 with PKCE, persistent token exchange, and playlist save/export.
+- Streamlit multi-page app live: homepage auth flow + Generate Playlist page.
 
 **Next Steps**
-1. Implement Streamlit UI: Spotify login, Airbnb input form, playlist preview/download.
-2. Integrate genre + Airbnb keyword signals into recommendation weights.
-3. Dockerize the full stack and deploy to a public endpoint (AWS or similar).
-4. Add automated tests + linting to lock down pipelines before deployment.
+1. Pre-compute lyric embeddings to speed up cold-start recommendations.
+2. Integrate user listening history (top genres/artists) into recommendation weights.
+3. Deploy to a public endpoint (Streamlit Community Cloud or similar).

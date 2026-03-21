@@ -1,3 +1,26 @@
+# OS
 .DS_Store
-__pycache__
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment / secrets
+.env
+
+# Large data files
 spotify-clustering/dataset/spotify_dataset_lyrics.csv
+Output.csv
+data/precomputed/
+
+# Model artifacts
+*.pth
+*.pt
+*.bin

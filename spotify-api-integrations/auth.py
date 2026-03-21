@@ -38,6 +38,7 @@ SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 DEFAULT_SCOPES = (
     "user-read-email",
     "user-read-private",
+    "playlist-modify-private",
 )
 
 
