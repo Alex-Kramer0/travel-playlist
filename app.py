@@ -104,9 +104,7 @@ else:
                 _PENDING_AUTH[flow.state] = flow.code_verifier
                 log.info("Starting Spotify auth — state=%s, redirect=%s", flow.state, os.getenv("SPOTIFY_REDIRECT_URI"))
                 st.markdown(
-                    f'<a href="{flow.authorization_url}" target="_top" style="display:inline-block;padding:0.5rem 1.25rem;'
-                    f'background:#1DB954;color:white;border-radius:6px;text-decoration:none;font-weight:600;">'
-                    f'Click here to authorize with Spotify →</a>',
+                    f'<meta http-equiv="refresh" content="0;url={flow.authorization_url}">',
                     unsafe_allow_html=True,
                 )
                 st.stop()
