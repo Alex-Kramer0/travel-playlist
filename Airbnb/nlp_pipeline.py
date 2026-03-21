@@ -1,25 +1,31 @@
 '''
 HOW TO CALL FUNCTION: 
-from Airbnb.nlp_pipeline import analyze_listing_from_url
+from nlp_pipeline import analyze_listing
 
-## Unzip the output file prior to running! 
-DATASET_PATH = "Airbnb/data/Output.csv"
-NRC_PATH = "Airbnb/emolex/NRC-Emotion-Lexicon-Wordlevel-v0.92.txt"
-
-# sample listing
-listing_url = "https://www.airbnb.com/rooms/2536175"
-
-keywords_json, emotions_json = analyze_listing_from_url(
-    url=listing_url,
-    dataset_path=DATASET_PATH,
-    nrc_path=NRC_PATH,
+# When the user provides a URL 
+keyword_json, emotion_json = analyze_listing(
+    dataset_path=dataset_path,
+    nrc_path=nrc_path,
+    url=url
 )
 
-print("KEYWORDS JSON")
-print(keywords_json)
+print("Keywords:", keyword_json)
+print("Emotions:", emotion_json)
 
-print("\nEMOTIONS JSON")
-print(emotions_json)
+# When the user provides a description 
+description = """
+Beautiful waterfront condo with modern kitchen, private balcony,
+and stunning sunset views. Perfect for a relaxing getaway.
+"""
+
+keyword_json, emotion_json = analyze_listing(
+    dataset_path=dataset_path,
+    nrc_path=nrc_path,
+    description=description
+)
+
+print("Keywords:", keyword_json)
+print("Emotions:", emotion_json)
 '''
 
 # =========================
@@ -551,15 +557,25 @@ def build_emotion_json(listing_data: Dict[str, Optional[str]], emotion_scores: D
 # =========================
 # MAIN PIPELINE
 # =========================
-def analyze_listing_from_url(url: str, dataset_path: str, nrc_path: str) -> Tuple[Dict, Dict]:
-    '''
-    function: runs the full pipeline 
-    '''
-    listings_df = load_listing_dataset(dataset_path)
-    cat_to_words = load_nrc_lexicon(nrc_path)
 
-    listing_data = get_listing_by_url(url, listings_df)
-    description = listing_data.get("description", "") or ""
+def analyze_listing_description(
+    description: str,
+    nrc_path: str,
+    listing_data: Optional[Dict[str, Optional[str]]] = None
+) -> Tuple[Dict, Dict]:
+    '''
+    function: handles anlyzing listing descriptions 
+    return: returns a JSON-stle dictionary 
+    '''
+    if listing_data is None:
+        listing_data = {
+            "id": None,
+            "listing_url": None,
+            "name": None,
+            "neighbourhood_cleansed": None,
+        }
+
+    cat_to_words = load_nrc_lexicon(nrc_path)
 
     keywords = extract_vibe_keywords(description, top_n=5)
     emotions = extract_emotions(description, cat_to_words)
@@ -570,4 +586,22 @@ def analyze_listing_from_url(url: str, dataset_path: str, nrc_path: str) -> Tupl
     return keyword_json, emotion_json
 
 
-## alex create new branch accepting descriptions for the input
+def analyze_listing(
+    dataset_path: str,
+    nrc_path: str,
+    url: Optional[str] = None,
+    description: Optional[str] = None
+) -> Tuple[Dict, Dict]:
+    '''
+    function: takes in the URL or description 
+    '''
+    if bool(url) == bool(description):
+        raise ValueError("Provide exactly one of `url` or `description`.")
+
+    if url:
+        listings_df = load_listing_dataset(dataset_path)
+        listing_data = get_listing_by_url(url, listings_df)
+        description_text = listing_data.get("description", "") or ""
+        return analyze_listing_description(description_text, nrc_path, listing_data)
+
+    return analyze_listing_description(description, nrc_path)
