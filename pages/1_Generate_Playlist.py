@@ -20,6 +20,10 @@ for p in [SPOTIFY_DIR, RECO_DIR, SPOTIFY_API_DIR, str(PROJECT_ROOT)]:
 
 load_dotenv(PROJECT_ROOT / ".env")
 
+import nltk
+nltk.download("punkt_tab", quiet=True)
+nltk.download("averaged_perceptron_tagger_eng", quiet=True)
+
 from data_loader import AUDIO_FEATURE_COLS, load_spotify, select_features, remove_outliers, scale_features
 from clustering import fit_kmeans
 from Airbnb.nlp_pipeline import (

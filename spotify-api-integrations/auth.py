@@ -42,7 +42,7 @@ DEFAULT_SCOPES = (
 )
 
 
-@dataclass(slots=True)
+@dataclass
 class SpotifyAuthFlow:
     """Container for the data a frontend needs to start Spotify auth."""
 
@@ -52,7 +52,7 @@ class SpotifyAuthFlow:
     code_challenge: str
 
 
-@dataclass(slots=True)
+@dataclass
 class SpotifyToken:
     """Normalized token payload returned from Spotify."""
 
