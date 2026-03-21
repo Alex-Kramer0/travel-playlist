@@ -40,8 +40,8 @@ st.set_page_config(page_title="Generate Playlist", page_icon="🎶", layout="wid
 st.title("Generate Playlist")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-SPOTIFY_CSV = PROJECT_ROOT / "spotify-clustering" / "dataset" / "spotify_dataset_lyrics.csv"
-AIRBNB_DATASET = PROJECT_ROOT / "Airbnb" / "data" / "Output.csv"
+SPOTIFY_CSV = PROJECT_ROOT / "spotify-clustering" / "dataset" / "spotify_dataset_lyrics_top50k.csv"
+AIRBNB_DATASET = PROJECT_ROOT / "Airbnb" / "data" / "Output.csv.zip"
 NRC_PATH = PROJECT_ROOT / "Airbnb" / "emolex" / "NRC-Emotion-Lexicon-Wordlevel-v0.92.txt"
 K_FINAL = 5
 
@@ -76,8 +76,11 @@ def load_nrc():
 missing_files = []
 if not SPOTIFY_CSV.exists():
     missing_files.append(f"Spotify CSV: `{SPOTIFY_CSV}`")
-if not AIRBNB_DATASET.exists():
+airbnb_path = AIRBNB_DATASET if AIRBNB_DATASET.exists() else AIRBNB_DATASET.with_suffix("")
+if not airbnb_path.exists():
     missing_files.append(f"Airbnb dataset: `{AIRBNB_DATASET}`")
+else:
+    AIRBNB_DATASET = airbnb_path
 if not NRC_PATH.exists():
     missing_files.append(f"NRC lexicon: `{NRC_PATH}`")
 

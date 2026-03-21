@@ -16,10 +16,11 @@ __pycache__/
 .env
 .streamlit/secrets.toml
 
-# Large data files
+# Large data files (full dataset too large for GitHub)
 spotify-clustering/dataset/spotify_dataset_lyrics.csv
 Output.csv
 data/precomputed/
+# spotify_dataset_lyrics_top50k.csv is intentionally committed (84MB, within GitHub limits)
 
 # Model artifacts
 *.pth
