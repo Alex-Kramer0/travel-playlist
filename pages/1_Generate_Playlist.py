@@ -22,8 +22,6 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 from data_loader import AUDIO_FEATURE_COLS, load_spotify, select_features, remove_outliers, scale_features
 from clustering import fit_kmeans
-from keyword_embedder import resolve_keywords, build_lyric_index
-from recommender import recommend
 from Airbnb.nlp_pipeline import (
     load_listing_dataset,
     load_nrc_lexicon,
@@ -134,6 +132,10 @@ if generate_clicked:
     with col_b:
         with st.expander("Full description", expanded=False):
             st.write(description if description else "_No description available._")
+
+    # Lazy imports — torch/sentence-transformers only loaded when Generate is clicked
+    from keyword_embedder import resolve_keywords, build_lyric_index  # noqa: F401
+    from recommender import recommend
 
     # Step 2: Extract keywords & emotions
     with st.spinner("Extracting keywords and emotions..."):
