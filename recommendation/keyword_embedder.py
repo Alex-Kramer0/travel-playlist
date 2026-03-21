@@ -2,16 +2,17 @@
 keyword_embedder.py
 -------------------
 Embedding-based mapping from Airbnb TF-IDF keywords to:
-  - target emotion label(s)   via zero-shot NLI  (facebook/bart-large-mnli)
+  - target emotion label(s)   via provided metadata (if available) or zero-shot NLI
   - target audio feature vector via retrieve-then-aggregate over the track catalog
 
 Approach
 --------
 1. Embed each input keyword with sentence-transformers (all-MiniLM-L6-v2).
 
-2. EMOTION — Zero-shot NLI:
-   Concatenate keywords into a short passage and classify against the emotion
-   labels using a zero-shot NLI pipeline (facebook/bart-large-mnli).
+2. EMOTION — Metadata or Zero-shot NLI:
+   Use provided emotion metadata (dominant_emotion / emotion_scores) if available,
+   otherwise classify the concatenated keyword string against the emotion labels
+   using a zero-shot NLI pipeline (facebook/bart-large-mnli).
 
 3. AUDIO — Retrieve-then-aggregate:
    Find the top-k tracks in the catalog whose lyric embeddings are most similar
@@ -36,6 +37,8 @@ has not been built, resolve_keywords falls back to returning zero audio targets.
 from __future__ import annotations
 
 import math
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -56,8 +59,27 @@ _lyric_embs: np.ndarray | None = None          # (n_tracks, embed_dim)
 _scaled_audio: np.ndarray | None = None        # (n_tracks, n_features)
 _feature_cols: list[str] | None = None
 
+_INDEX_ERROR_MSG = (
+    "Lyric index not built. Run build_lyric_index(...) once per kernel or "
+    "load a cached index via load_lyric_index(<path>) before calling resolve_keywords."
+)
+
 # Emotion labels that must match the `emotion` column values in the dataset
 EMOTION_LABELS: list[str] = ["joy", "sadness", "anger", "fear", "surprise", "neutral"]
+
+_EMOTION_ALIAS_MAP = {
+    "joy": "joy",
+    "anticipation": "surprise",
+    "trust": "neutral",
+    "disgust": "anger",
+    "fear": "fear",
+    "sadness": "sadness",
+    "surprise": "surprise",
+    "anger": "anger",
+    "positive": "joy",
+    "negative": "sadness",
+    "neutral": "neutral",
+}
 
 # Number of nearest-neighbor tracks to aggregate for the audio target
 _RETRIEVE_K = 20
@@ -101,8 +123,8 @@ def build_lyric_index(
 ) -> None:
     """
     Pre-embed all track lyrics and cache the scaled audio feature matrix.
-    Must be called once after loading the dataset before resolve_keywords
-    can produce meaningful audio targets.
+    Must be called once per kernel session (or `load_lyric_index` must be
+    invoked) before resolve_keywords can produce meaningful audio targets.
 
     Parameters
     ----------
@@ -134,6 +156,44 @@ def build_lyric_index(
     print("Lyric index ready.")
 
 
+def save_lyric_index(path: str | Path) -> None:
+    """Persist the in-memory lyric index to disk for reuse."""
+    if not is_lyric_index_ready():
+        raise RuntimeError("Cannot save lyric index before it is built.")
+
+    cache_path = Path(path)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        cache_path,
+        lyric_embs=_lyric_embs.astype(np.float32, copy=False),
+        scaled_audio=_scaled_audio.astype(np.float32, copy=False),
+        feature_cols=np.array(_feature_cols, dtype="U"),
+    )
+
+
+def load_lyric_index(path: str | Path) -> None:
+    """Load a previously cached lyric index."""
+    cache_path = Path(path)
+    if not cache_path.exists():
+        raise FileNotFoundError(cache_path)
+
+    data = np.load(cache_path, allow_pickle=False)
+    global _lyric_embs, _scaled_audio, _feature_cols
+    _lyric_embs = data["lyric_embs"]
+    _scaled_audio = data["scaled_audio"]
+    _feature_cols = data["feature_cols"].astype(str).tolist()
+
+
+def is_lyric_index_ready() -> bool:
+    """Return True if the lyric index is available in memory."""
+    return _lyric_embs is not None and _scaled_audio is not None and _feature_cols is not None
+
+
+def _assert_index_ready() -> None:
+    if not is_lyric_index_ready():
+        raise RuntimeError(_INDEX_ERROR_MSG)
+
+
 # ── Core resolution ───────────────────────────────────────────────────────────
 
 def _resolve_emotion_nli(text: str) -> dict[str, float]:
@@ -146,20 +206,82 @@ def _resolve_emotion_nli(text: str) -> dict[str, float]:
     return dict(zip(result["labels"], result["scores"]))
 
 
+def _normalize_emotion_label(label: str | None) -> str | None:
+    if not label:
+        return None
+    key = label.strip().lower()
+    if key in EMOTION_LABELS:
+        return key
+    return _EMOTION_ALIAS_MAP.get(key)
+
+
+def _resolve_emotions_from_metadata(
+    dominant_emotion: str | None,
+    emotion_scores: dict[str, float] | None,
+) -> tuple[list[str], dict[str, float]] | None:
+    """
+    Resolve emotions from provided metadata.
+
+    Parameters
+    ----------
+    dominant_emotion : str | None
+        Optional dominant emotion emitted by the Airbnb NLP pipeline.
+    emotion_scores : dict[str, float] | None
+        Optional normalized emotion score map from the pipeline.
+
+    Returns
+    -------
+    tuple[list[str], dict[str, float]] | None
+        Emotion labels sorted by inferred weight and their corresponding scores.
+    """
+    candidates: dict[str, float] = {}
+    normalized_hint = _normalize_emotion_label(dominant_emotion)
+    if normalized_hint:
+        candidates[normalized_hint] = 1.0
+
+    if emotion_scores:
+        for raw_label, score in emotion_scores.items():
+            normalized = _normalize_emotion_label(raw_label)
+            if not normalized:
+                continue
+            candidates[normalized] = max(candidates.get(normalized, 0.0), float(score))
+
+    if not candidates:
+        return None
+
+    emotions_sorted = sorted(candidates, key=lambda e: -candidates[e])
+    return emotions_sorted, candidates
+
+
 def _resolve_audio_retrieve(kw_embs: np.ndarray, k: int = _RETRIEVE_K) -> dict[str, float]:
     """
+    Retrieve-then-aggregate logic.
+
     Given keyword embeddings (n_keywords, dim), find the top-k tracks by
     cosine similarity to the mean keyword embedding, then average their
     scaled audio features to form the target vector.
 
-    Returns a dict {feature: z_score_target} or all-zeros if index missing.
+    Parameters
+    ----------
+    kw_embs : np.ndarray
+        Keyword embeddings (n_keywords, dim).
+    k : int, optional
+        Number of nearest-neighbor tracks to aggregate (default: _RETRIEVE_K).
+
+    Returns
+    -------
+    dict[str, float]
+        Target z-score per audio feature or all-zeros if index missing.
     """
-    if _lyric_embs is None or _scaled_audio is None or _feature_cols is None:
-        return {f: 0.0 for f in _AUDIO_FEATURE_COLS}
+    _assert_index_ready()
 
+    # Average all keyword embeddings so the query represents the overall listing vibe.
     mean_kw = kw_embs.mean(axis=0)                        # (dim,)
-    mean_kw = mean_kw / (np.linalg.norm(mean_kw) + 1e-9)
+    mean_kw = mean_kw / (np.linalg.norm(mean_kw) + 1e-9)  # keep cosine similarity stable
 
+    # Cosine similarity reduces to a dot product because embeddings are normalized.
+    # We grab the top-k most similar lyric vectors and treat them as pseudo-neighbors
+    # whose audio profiles we can average to derive the target feature vector.
     sims = _lyric_embs @ mean_kw                          # (n_tracks,)
     top_k_idx = np.argpartition(sims, -k)[-k:]
     audio_target_vec = _scaled_audio[top_k_idx].mean(axis=0)  # (n_features,)
@@ -167,24 +289,28 @@ def _resolve_audio_retrieve(kw_embs: np.ndarray, k: int = _RETRIEVE_K) -> dict[s
     return {feat: float(audio_target_vec[i]) for i, feat in enumerate(_feature_cols)}
 
 
-def resolve_keywords(keywords: list[str]) -> dict:
+def resolve_keywords(
+    keywords: list[str],
+    *,
+    dominant_emotion: str | None = None,
+    emotion_scores: dict[str, float] | None = None,
+) -> dict:
     """
-    Given a list of Airbnb TF-IDF keywords, resolve:
-      - emotion weights  via zero-shot NLI on the concatenated keyword string
-      - audio target     via retrieve-then-aggregate over the lyric index
-      - location terms   via low NLI confidence (no strong emotion signal)
+    Resolve keywords to emotions, audio target, and location terms.
 
     Parameters
     ----------
-    keywords : list of keyword strings
+    keywords : list[str]
+        TF-IDF keywords extracted from the Airbnb listing description.
+    dominant_emotion : str | None, optional
+        Optional dominant emotion emitted by the Airbnb NLP pipeline.
+    emotion_scores : dict[str, float] | None, optional
+        Optional normalized emotion score map from the pipeline.
 
     Returns
     -------
-    dict with keys:
-        "emotions"       : list[str]  — emotion labels sorted by inferred weight
-        "emotion_weights": dict[str, float]  — NLI confidence scores per emotion
-        "audio_target"   : dict[str, float]  — target z-score per audio feature
-        "location_terms" : list[str]  — keywords passed to the lyrics-search layer
+    dict
+        Resolved emotions, audio target, and location terms.
     """
     fallback_features = _feature_cols if _feature_cols is not None else _AUDIO_FEATURE_COLS
     if not keywords:
@@ -198,10 +324,14 @@ def resolve_keywords(keywords: list[str]) -> dict:
     # ── Embed keywords (used for audio retrieval + location detection) ─────────
     kw_embs = _embed(keywords)                            # (n_keywords, dim)
 
-    # ── Emotion — zero-shot NLI ────────────────────────────────────────────────
-    kw_text = ", ".join(keywords)
-    emotion_weights = _resolve_emotion_nli(kw_text)
-    emotions_sorted = sorted(emotion_weights, key=lambda e: -emotion_weights[e])
+    # ── Emotion — prefer provided metadata, otherwise zero-shot NLI ────────────
+    metadata_emotions = _resolve_emotions_from_metadata(dominant_emotion, emotion_scores)
+    if metadata_emotions is not None:
+        emotions_sorted, emotion_weights = metadata_emotions
+    else:
+        kw_text = ", ".join(keywords)
+        emotion_weights = _resolve_emotion_nli(kw_text)
+        emotions_sorted = sorted(emotion_weights, key=lambda e: -emotion_weights[e])
 
     # ── Audio target — retrieve-then-aggregate ─────────────────────────────────
     audio_target = _resolve_audio_retrieve(kw_embs)

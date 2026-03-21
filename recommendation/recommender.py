@@ -179,7 +179,11 @@ def recommend(
     """
     w = {**_DEFAULT_WEIGHTS, **(weights or {})}
 
-    resolved = resolve_keywords(keywords)
+    resolved = resolve_keywords(
+        keywords,
+        dominant_emotion=df.attrs.get("dominant_emotion"),
+        emotion_scores=df.attrs.get("emotion_scores"),
+    )
     emotions = resolved["emotions"]
     audio_target = resolved["audio_target"]
     location_terms = resolved["location_terms"]
