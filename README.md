@@ -71,6 +71,34 @@ From the homepage you can:
 
 Then navigate to **Generate Playlist**, paste an Airbnb listing URL, and click **Generate**.
 
+## Deploying to Streamlit Community Cloud
+
+### 1. Push to GitHub
+Make sure all changes are committed and pushed to `Alex-Kramer0/travel-playlist`.
+
+### 2. Register the deployed redirect URI in Spotify
+Before deploying, go to https://developer.spotify.com/dashboard → your app → **Settings → Redirect URIs** and add:
+```
+https://<your-app-name>.streamlit.app
+```
+You'll know the exact URL after the first deploy. Add it afterwards and re-authenticate.
+
+### 3. Deploy on Streamlit Community Cloud
+1. Go to https://share.streamlit.io and sign in with GitHub.
+2. Click **New app** → select `Alex-Kramer0/travel-playlist` → branch `main` → main file `app.py`.
+3. Click **Deploy**.
+
+### 4. Add secrets in the Cloud UI
+After deploying, go to your app's **Settings → Secrets** and paste:
+```toml
+SPOTIFY_CLIENT_ID = "your_spotify_client_id"
+SPOTIFY_CLIENT_SECRET = "your_spotify_client_secret"
+SPOTIFY_REDIRECT_URI = "https://<your-app-name>.streamlit.app"
+```
+See `.streamlit/secrets.toml.example` for the template. The app will restart automatically and pick up the secrets.
+
+> **Note:** Do not commit `.streamlit/secrets.toml` — it is gitignored. Manage all secrets through the Cloud UI.
+
 ## Assumptions & Limitations
 - Spotify dataset emotions/genres come from provided labels; quality varies across tracks.
 - Airbnb NLP currently tuned on a single test city; broader generalization requires more listings.

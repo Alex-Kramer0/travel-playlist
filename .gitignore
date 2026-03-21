@@ -14,6 +14,7 @@ __pycache__/
 
 # Environment / secrets
 .env
+.streamlit/secrets.toml
 
 # Large data files
 spotify-clustering/dataset/spotify_dataset_lyrics.csv

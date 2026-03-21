@@ -17,6 +17,17 @@ if SPOTIFY_API_DIR not in sys.path:
 
 load_dotenv(PROJECT_ROOT / ".env")
 
+# On Streamlit Community Cloud there is no .env file — secrets are provided via
+# st.secrets. Sync them into os.environ so auth.py's os.getenv() calls work
+# identically in both local and Cloud environments.
+_SPOTIFY_KEYS = ("SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "SPOTIFY_REDIRECT_URI")
+for _key in _SPOTIFY_KEYS:
+    if _key not in os.environ:
+        try:
+            os.environ[_key] = st.secrets[_key]
+        except (KeyError, FileNotFoundError):
+            pass
+
 from auth import start_spotify_auth, complete_spotify_auth, SpotifyAuthError
 
 SPOTIFY_SCOPES = [
