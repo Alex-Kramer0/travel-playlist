@@ -63,7 +63,14 @@ def load_spotify_data():
 @st.cache_resource(show_spinner="Loading Airbnb listings...")
 def load_airbnb_data():
     """Load the Airbnb listing dataset."""
-    return load_listing_dataset(str(AIRBNB_DATASET))
+    path = str(AIRBNB_DATASET)
+    if path.endswith(".zip"):
+        import zipfile
+        with zipfile.ZipFile(path) as zf:
+            csv_names = [n for n in zf.namelist() if n.endswith(".csv") and not n.startswith("__MACOSX")]
+            with zf.open(csv_names[0]) as f:
+                return pd.read_csv(f)
+    return load_listing_dataset(path)
 
 
 @st.cache_resource(show_spinner="Loading emotion lexicon...")
