@@ -112,9 +112,12 @@ See `.streamlit/secrets.toml.example` for the template. The app will restart aut
 - Built keyword embedding resolver and four-layer recommendation engine (lyrics, emotion, audio, cluster).
 - Implemented Spotify OAuth 2.0 with PKCE, persistent token exchange, and playlist save/export.
 - Streamlit multi-page app live: homepage auth flow + Generate Playlist page.
+- Deploy to a public endpoint (Streamlit Community Cloud or similar).
+
 
 **Next Steps**
-1. Pre-compute lyric embeddings to speed up cold-start recommendations.
+1. Set up AWS S3 buckets for large datasets and lyric embeddings.
 2. Integrate user listening history (top genres/artists) into recommendation weights.
-3. Deploy to a public endpoint (Streamlit Community Cloud or similar).
-4. Add 'nice to have' features 
+3. Create a workstream for the user to paste in the description as an alternative to the listing URL
+4. Implement user evaulation pipeline
+5. Add 'nice to have' features and better styling to the UI
