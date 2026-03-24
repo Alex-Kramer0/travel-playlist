@@ -117,3 +117,4 @@ See `.streamlit/secrets.toml.example` for the template. The app will restart aut
 1. Pre-compute lyric embeddings to speed up cold-start recommendations.
 2. Integrate user listening history (top genres/artists) into recommendation weights.
 3. Deploy to a public endpoint (Streamlit Community Cloud or similar).
+4. Add 'nice to have' features 
