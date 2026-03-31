@@ -41,10 +41,162 @@ from Airbnb.nlp_pipeline import (
 from auth import SpotifyAuthError
 from playlists import create_playlist, add_tracks_to_playlist, resolve_track_uris
 
+# ── Emotion Themes Set up ───────────────────────────────────────────────────────────────
+EMOTION_THEMES = {
+    "joy": { #done
+        "primary": "#43b3bd",
+        "secondary": "#b3f08c",
+        "accent": "#f9f37e",
+        "text": "#FAFAFA",
+    },
+    "trust": {
+        "primary": "#36476f",
+        "secondary": "#3e868e",
+        "accent": "#d1b896",
+        "text": "#FAFAFA",
+    },
+    "anticipation": {
+        "primary": "#b55937",
+        "secondary": "#a1b099",
+        "accent": "#f18e30",
+        "text": "#030303",
+    },
+    "surprise": {
+        "primary": "#9D4EDD",
+        "secondary": "#240046",
+        "accent": "#C77DFF",
+        "text": "#FAFAFA",
+    },
+    "sadness": { # blues
+        "primary": "#13273e",
+        "secondary": "#39546d",
+        "accent": "#567b89",
+        "text": "#FAFAFA",
+    },
+    "fear": {
+        "primary": "#6A4C93",
+        "secondary": "#22223B",
+        "accent": "#9A8C98",
+        "text": "#FAFAFA",
+    },
+    "anger": {
+        "primary": "#D62828",
+        "secondary": "#3A0CA3",
+        "accent": "#F77F00",
+        "text": "#FAFAFA",
+    },
+    "disgust": {
+        "primary": "#6A994E",
+        "secondary": "#283618",
+        "accent": "#A7C957",
+        "text": "#FAFAFA",
+    },
+    "default": {
+        "primary": "#1DB954",
+        "secondary": "#1a1a2e",
+        "accent": "#2EC4B6",
+        "text": "#FAFAFA",
+    },
+}
+
+def apply_emotion_theme(emotion: str | None):
+    # apply color changes based on dominat emotion once generated
+    theme = EMOTION_THEMES.get((emotion or "").lower(), EMOTION_THEMES["default"])
+
+    primary = theme["primary"]
+    secondary = theme["secondary"]
+    accent = theme["accent"]
+    text = theme["text"]
+
+    st.markdown(
+        f"""
+        <style>
+        /* Main page background blocks */
+        .stApp {{
+            background:
+                linear-gradient(180deg, {secondary} 0%, #0E1117 100%);
+            color: {text};
+        }}
+
+        /* Input areas, dataframe containers, expanders, tabs, etc. */
+        div[data-testid="stTextInputRootElement"] > div,
+        div[data-testid="stTextAreaRootElement"] > div,
+        div[data-testid="stNumberInputRootElement"] > div,
+        div[data-testid="stSelectbox"] > div,
+        div[data-testid="stSlider"] {{
+            border-radius: 12px;
+        }}
+
+        /* Buttons */
+        .stButton > button {{
+            background-color: {primary};
+            color: #0E1117;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+        }}
+
+        .stButton > button:hover {{
+            background-color: {accent};
+            color: #0E1117;
+        }}
+
+        /* Tabs */
+        button[data-baseweb="tab"] {{
+            border-radius: 10px 10px 0 0;
+        }}
+
+        button[data-baseweb="tab"][aria-selected="true"] {{
+            color: {primary};
+            border-bottom: 2px solid {primary};
+        }}
+
+        /* Metric cards / generic blocks */
+        div[data-testid="stMetric"] {{
+            background-color: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 12px;
+            border-radius: 12px;
+        }}
+
+        /* Dataframe container */
+        div[data-testid="stDataFrame"] {{
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            overflow: hidden;
+        }}
+
+        /* Expanders */
+        div[data-testid="stExpander"] {{
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            background-color: rgba(255,255,255,0.03);
+        }}
+
+        /* Accent text helpers */
+        .emotion-accent {{
+            color: {primary};
+            font-weight: 700;
+        }}
+
+        .emotion-chip {{
+            display: inline-block;
+            padding: 0.35rem 0.7rem;
+            border-radius: 999px;
+            background-color: {primary};
+            color: #0E1117;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Generate Playlist", page_icon="🎶", layout="wide")
 
 st.title("Generate Playlist")
+apply_emotion_theme("default")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 SPOTIFY_CSV = PROJECT_ROOT / "spotify-clustering" / "dataset" / "spotify_dataset_lyrics_top50k.csv"
@@ -263,8 +415,12 @@ if generate_clicked:
         st.stop()
 
     dominant = emotion_scores.get("dominant_emotion")
+    apply_emotion_theme(dominant)
     if dominant:
-        st.markdown(f"**Dominant emotion:** {dominant}")
+        st.markdown(
+        f'**Dominant emotion:** <span class="emotion-chip">{dominant.title()}</span>',
+        unsafe_allow_html=True,
+    )
 
     # Step 3: Recommend
     with st.spinner("Generating playlist..."):
