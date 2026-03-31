@@ -98,6 +98,17 @@ EMOTION_THEMES = {
         "text": "#FAFAFA",
     },
 }
+EMOTION_EMOJIS = {
+    "joy": ["✨", "🌞", "😊"],
+    "trust": ["🤝", "💚", "🛡️"],
+    "anticipation": ["🌅", "🎒", "🚀"],
+    "surprise": ["🎉", "😮", "⚡"],
+    "sadness": ["🌧️", "💙", "😔"],
+    "fear": ["🌫️", "🫣", "👁️"],
+    "anger": ["🔥", "⚡", "😤"],
+    "disgust": ["🫥", "⚠️", "🍃"],
+    "default": ["🎶"],
+}
 
 def apply_emotion_theme(emotion: str | None):
     # apply color changes based on dominat emotion once generated
@@ -416,11 +427,45 @@ if generate_clicked:
 
     dominant = emotion_scores.get("dominant_emotion")
     apply_emotion_theme(dominant)
-    if dominant:
-        st.markdown(
-        f'**Dominant emotion:** <span class="emotion-chip">{dominant.title()}</span>',
+    
+if dominant:
+    emotion_key = dominant.lower()
+    emotion_emojis = EMOTION_EMOJIS.get(emotion_key, EMOTION_EMOJIS["default"])
+    emoji_string = " ".join(emotion_emojis)
+
+    st.markdown(
+        f'''
+        <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+            <span><strong>Dominant emotion:</strong></span>
+            <span class="emotion-chip">{dominant.title()}</span>
+            <span class="emotion-emoji">{emoji_string}</span>
+        </div>
+        ''',
         unsafe_allow_html=True,
     )
+
+    emotion_display = {
+        k: v for k, v in emotion_scores.items()
+        if k != "dominant_emotion" and isinstance(v, (int, float))
+    }
+
+    top_emotions = sorted(
+        emotion_display.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )[:4]
+
+    if top_emotions:
+        chips_html = " ".join(
+            [
+                f'<span class="emotion-secondary-chip">{emotion.title()}</span>'
+                for emotion, _ in top_emotions
+            ]
+        )
+        st.markdown(
+            f"**Other detected emotions:** {chips_html}",
+            unsafe_allow_html=True,
+        )
 
     # Step 3: Recommend
     with st.spinner("Generating playlist..."):
