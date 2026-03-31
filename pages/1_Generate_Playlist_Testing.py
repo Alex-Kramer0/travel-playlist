@@ -7,12 +7,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
+import csv
+from datetime import datetime, timezone
 
 # ── Path setup so we can import project modules ──────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SPOTIFY_DIR = str(PROJECT_ROOT / "spotify-clustering")
 RECO_DIR = str(PROJECT_ROOT / "recommendation")
 SPOTIFY_API_DIR = str(PROJECT_ROOT / "spotify-api-integrations")
+FEEDBACK_CSV = PROJECT_ROOT / "user-feedback" / "playlist_feedback.csv"
 
 for p in [SPOTIFY_DIR, RECO_DIR, SPOTIFY_API_DIR, str(PROJECT_ROOT)]:
     if p not in sys.path:
@@ -81,6 +84,45 @@ def load_airbnb_data():
 def load_nrc():
     """Load the NRC emotion lexicon."""
     return load_nrc_lexicon(str(NRC_PATH))
+
+# Save playlist feedback to CSV for later analysis. Appends a new row with timestamp, listing info, and user rating.
+def save_playlist_feedback(
+    rating: int,
+    listing_name: str,
+    input_mode: str,
+    listing_url: str,
+    track_count: int,
+):
+    FEEDBACK_CSV.parent.mkdir(parents=True, exist_ok=True)
+
+    file_exists = FEEDBACK_CSV.exists()
+
+    with open(FEEDBACK_CSV, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "timestamp_utc",
+                "listing_name",
+                "input_mode",
+                "listing_url",
+                "track_count",
+                "rating",
+            ],
+        )
+
+        if not file_exists:
+            writer.writeheader()
+
+        writer.writerow(
+            {
+                "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                "listing_name": listing_name,
+                "input_mode": input_mode,
+                "listing_url": listing_url,
+                "track_count": track_count,
+                "rating": rating,
+            }
+        )
 
 
 # ── Load data ─────────────────────────────────────────────────────────────────
@@ -260,8 +302,17 @@ if generate_clicked:
     )
 
     # Store playlist in session state so it persists across reruns
+    #st.session_state["current_playlist"] = playlist
+    #st.session_state["current_listing_name"] = listing_data.get("name", "Airbnb Listing")
     st.session_state["current_playlist"] = playlist
     st.session_state["current_listing_name"] = listing_data.get("name", "Airbnb Listing")
+    st.session_state["current_listing_url"] = url_input.strip()
+    st.session_state["current_input_mode"] = "url"
+    st.session_state["playlist_feedback_saved"] = False
+
+    # Reset the rating widget for a newly generated playlist
+    if "playlist_rating" in st.session_state:
+        del st.session_state["playlist_rating"]
 
     # Step 5: Score breakdown chart
     st.markdown("### Score Breakdown — Top 10")
@@ -364,3 +415,25 @@ if "current_playlist" in st.session_state:
                                 )
                         except SpotifyAuthError as e:
                             st.error(f"Spotify API error: {e}")
+# ── Playlist feedback ─────────────────────────────────────────────────────────
+if "current_playlist" in st.session_state:
+    st.markdown("---")
+    st.markdown("### Rate your playlist")
+    st.caption("How well did this playlist match the Airbnb vibe?")
+
+    rating_value = st.feedback("stars", key="playlist_rating")
+
+    if rating_value is not None and not st.session_state.get("playlist_feedback_saved", False):
+        # st.feedback("stars") returns 0–4, so convert to 1–5
+        stars = rating_value + 1
+
+        save_playlist_feedback(
+            rating=stars,
+            listing_name=st.session_state.get("current_listing_name", "Unknown Listing"),
+            input_mode=st.session_state.get("current_input_mode", "unknown"),
+            listing_url=st.session_state.get("current_listing_url", ""),
+            track_count=len(st.session_state["current_playlist"]),
+        )
+
+        st.session_state["playlist_feedback_saved"] = True
+        st.success(f"Thanks for rating this playlist {stars}/5.")
