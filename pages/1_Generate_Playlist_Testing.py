@@ -475,10 +475,7 @@ if generate_clicked:
                     for emotion, _ in top_emotions
                 ]
             )
-            st.markdown(
-                f"**Other detected emotions:** {chips_html}",
-                unsafe_allow_html=True,
-            )
+
 
     # Step 3: Recommend
     with st.spinner("Generating playlist..."):
