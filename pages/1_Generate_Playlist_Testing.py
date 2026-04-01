@@ -101,7 +101,7 @@ EMOTION_THEMES = {
 EMOTION_EMOJIS = {
     "joy": ["✨", "🌞", "😊"],
     "trust": ["🤝", "💚", "🛡️"],
-    "anticipation": ["🌅", "🎒", "🚀"],
+    "anticipation": ["🌅", "🚀"],
     "surprise": ["🎉", "😮", "⚡"],
     "sadness": ["🌧️", "💙", "😔"],
     "fear": ["🌫️", "🫣", "👁️"],
@@ -123,10 +123,17 @@ def apply_emotion_theme(emotion: str | None):
         f"""
         <style>
         /* Main page background blocks */
-        .stApp {{
-            background:
-                linear-gradient(180deg, {secondary} 0%, #0E1117 100%);
-            color: {text};
+        html, body, [data-testid="stAppViewContainer"], .stApp {{
+        background: linear-gradient(180deg, {primary} 0%, {secondary} 100%);
+        color: {text};
+        }}
+
+        [data-testid="stHeader"] {{
+            background: transparent;
+        }}
+
+        [data-testid="stMain"] {{
+            background: transparent;
         }}
 
         /* Input areas, dataframe containers, expanders, tabs, etc. */
@@ -189,15 +196,33 @@ def apply_emotion_theme(emotion: str | None):
             color: {primary};
             font-weight: 700;
         }}
+        /* Feedback stars / sentiment buttons */
+        div[data-testid="stFeedback"] button,
+        [data-testid="stFeedback"] button,
+        .stFeedback button {{
+            background-color: rgba(255,255,255,0.06);
+            border: 1px solid {accent};
+            border-radius: 10px;
+            color: {text};
+        }}
 
-        .emotion-chip {{
-            display: inline-block;
-            padding: 0.35rem 0.7rem;
-            border-radius: 999px;
-            background-color: {primary};
+        /* Hover */
+        div[data-testid="stFeedback"] button:hover,
+        [data-testid="stFeedback"] button:hover,
+        .stFeedback button:hover {{
+            background-color: {secondary};
+            border-color: {accent};
+            color: {text};
+        }}
+
+        /* Selected / active */
+        div[data-testid="stFeedback"] button[aria-pressed="true"],
+        [data-testid="stFeedback"] button[aria-pressed="true"],
+        .stFeedback button[aria-pressed="true"] {{
+            background-color: {accent};
+            border-color: {accent};
             color: #0E1117;
-            font-weight: 700;
-            font-size: 0.9rem;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.08);
         }}
         </style>
         """,
@@ -433,7 +458,7 @@ if generate_clicked:
         EMOTION_EMOJIS = {
             "joy": ["✨", "😊"],
             "trust": ["🤝", "💚"],
-            "anticipation": ["🎒", "✈️"],
+            "anticipation": ["‼️", "✈️"],
             "surprise": ["🎉", "⚡"],
             "sadness": ["🌧️", "💙"],
             "fear": ["🌫️", "👁️"],
