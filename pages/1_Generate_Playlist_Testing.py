@@ -213,6 +213,68 @@ def apply_emotion_theme(emotion: str | None):
             color: #0E1117;
             box-shadow: 0 0 0 2px rgba(255,255,255,0.08);
         }}
+        /* Text input + text area backgrounds */
+        div[data-testid="stTextInputRootElement"] > div,
+        div[data-testid="stTextAreaRootElement"] > div {{
+            background-color: {primary};
+            border: 1px solid {accent};
+            border-radius: 12px;
+        }}
+
+        div[data-testid="stTextAreaRootElement"] textarea,
+        div[data-testid="stTextInputRootElement"] input {{
+            background-color: {primary} !important;
+            color: {text} !important;
+            caret-color: {text};
+        }}
+
+        div[data-testid="stTextAreaRootElement"] textarea::placeholder,
+        div[data-testid="stTextInputRootElement"] input::placeholder {{
+            color: rgba(255,255,255,0.75);
+        }}
+
+        /* Main buttons */
+        .stButton > button,
+        .stDownloadButton > button {{
+            background-color: {primary};
+            color: #0E1117;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+        }}
+
+        .stButton > button:hover,
+        .stDownloadButton > button:hover {{
+            background-color: {accent};
+            color: #0E1117;
+        }}
+
+        /* Expander */
+        div[data-testid="stExpander"] {{
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            background-color: rgba(255,255,255,0.03);
+        }}
+
+        div[data-testid="stExpander"] summary {{
+            background-color: {primary};
+            color: #0E1117;
+            border-radius: 10px;
+            padding: 0.4rem 0.75rem;
+            font-weight: 600;
+        }}
+
+        div[data-testid="stExpander"] summary:hover {{
+            background-color: {accent};
+            color: #0E1117;
+        }}
+
+        div[data-testid="stExpanderDetails"] {{
+            background-color: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 0 0 10px 10px;
+            padding: 0.75rem;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
