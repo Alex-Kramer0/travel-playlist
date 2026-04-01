@@ -75,7 +75,7 @@ EMOTION_THEMES = {
     },
     "fear": {
         "primary": "#6A4C93",
-        "secondary": "#22223B",
+        "secondary": "#2A2A35",
         "accent": "#9A8C98",
         "text": "#FAFAFA",
     },
@@ -97,17 +97,6 @@ EMOTION_THEMES = {
         "accent": "#2EC4B6",
         "text": "#FAFAFA",
     },
-}
-EMOTION_EMOJIS = {
-    "joy": ["✨", "🌞", "😊"],
-    "trust": ["🤝", "💚", "🛡️"],
-    "anticipation": ["🌅", "🚀"],
-    "surprise": ["🎉", "😮", "⚡"],
-    "sadness": ["🌧️", "💙", "😔"],
-    "fear": ["🌫️", "🫣", "👁️"],
-    "anger": ["🔥", "⚡", "😤"],
-    "disgust": ["🫥", "⚠️", "🍃"],
-    "default": ["🎶"],
 }
 
 def apply_emotion_theme(emotion: str | None):
@@ -232,7 +221,9 @@ def apply_emotion_theme(emotion: str | None):
 st.set_page_config(page_title="Generate Playlist", page_icon="🎶", layout="wide")
 
 st.title("Generate Playlist")
-apply_emotion_theme("default")
+#apply_emotion_theme("default")
+current_emotion = st.session_state.get("current_emotion", "default")
+apply_emotion_theme(current_emotion)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 SPOTIFY_CSV = PROJECT_ROOT / "spotify-clustering" / "dataset" / "spotify_dataset_lyrics_top50k.csv"
@@ -450,7 +441,10 @@ if generate_clicked:
         st.warning("No keywords could be extracted from this listing description.")
         st.stop()
 
-    dominant = emotion_scores.get("dominant_emotion")
+    #dominant = emotion_scores.get("dominant_emotion")
+    #apply_emotion_theme(dominant)
+    dominant = emotion_scores.get("dominant_emotion") or "default"
+    st.session_state["current_emotion"] = dominant
     apply_emotion_theme(dominant)
     if dominant:
         emotion_key = dominant.lower()
@@ -458,7 +452,7 @@ if generate_clicked:
         EMOTION_EMOJIS = {
             "joy": ["✨", "😊"],
             "trust": ["🤝", "💚"],
-            "anticipation": ["‼️", "✈️"],
+            "anticipation": ["🌅", "🚀"],
             "surprise": ["🎉", "⚡"],
             "sadness": ["🌧️", "💙"],
             "fear": ["🌫️", "👁️"],
