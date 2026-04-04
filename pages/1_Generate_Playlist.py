@@ -24,7 +24,7 @@ import nltk
 nltk.download("punkt_tab", quiet=True)
 nltk.download("averaged_perceptron_tagger_eng", quiet=True)
 
-from data_loader import AUDIO_FEATURE_COLS, load_spotify, select_features, remove_outliers, scale_features
+from data_loader import AUDIO_FEATURE_COLS, CLUSTER_FEATURE_COLS, load_spotify, select_features, remove_outliers, scale_features, quantile_transform, pca_reduce
 from clustering import fit_kmeans
 from Airbnb.nlp_pipeline import (
     load_listing_dataset,
@@ -44,10 +44,11 @@ st.set_page_config(page_title="Generate Playlist", page_icon="🎶", layout="wid
 st.title("Generate Playlist")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-SPOTIFY_CSV = PROJECT_ROOT / "spotify-clustering" / "dataset" / "spotify_dataset_lyrics_top50k.csv"
+SPOTIFY_CSV = PROJECT_ROOT / "spotify-clustering" / "dataset" / "spotify_dataset_lyrics_random50k.csv"
 AIRBNB_DATASET = PROJECT_ROOT / "Airbnb" / "data" / "Output.csv.zip"
 NRC_PATH = PROJECT_ROOT / "Airbnb" / "emolex" / "NRC-Emotion-Lexicon-Wordlevel-v0.92.txt"
 K_FINAL = 5
+N_PCA = 2
 
 
 # ── Cached loaders ────────────────────────────────────────────────────────────
@@ -58,7 +59,9 @@ def load_spotify_data():
     filtered_df, feature_df = select_features(df_spotify, AUDIO_FEATURE_COLS)
     filtered_df, feature_df = remove_outliers(filtered_df, feature_df, AUDIO_FEATURE_COLS)
     scaled_df, scaler = scale_features(feature_df, AUDIO_FEATURE_COLS)
-    kmeans, clusters = fit_kmeans(scaled_df, k=K_FINAL)
+    qt_df, _ = quantile_transform(feature_df, CLUSTER_FEATURE_COLS)
+    pca_df, _ = pca_reduce(qt_df, n_components=N_PCA)
+    kmeans, clusters = fit_kmeans(pca_df, k=K_FINAL)
     clustered_df = filtered_df.copy()
     clustered_df["cluster"] = clusters
     return clustered_df, scaled_df

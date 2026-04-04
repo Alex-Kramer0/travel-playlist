@@ -22,7 +22,7 @@ def plot_elbow_silhouette(k_eval: pd.DataFrame) -> None:
 
     plt.title("Elbow vs. Silhouette Analysis (sampled data)")
     plt.tight_layout()
-    plt.show()
+    return fig
 
 
 def plot_cluster_heatmap(
@@ -36,7 +36,7 @@ def plot_cluster_heatmap(
     plt.ylabel("Feature")
     plt.xlabel("Cluster")
     plt.tight_layout()
-    plt.show()
+    return plt.gcf()
 
 
 def plot_pca_scatter(
@@ -65,9 +65,7 @@ def plot_pca_scatter(
     plt.axhline(0, color="gray", linewidth=0.5)
     plt.axvline(0, color="gray", linewidth=0.5)
     plt.tight_layout()
-    plt.show()
-
-    print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
+    return plt.gcf(), pca.explained_variance_ratio_
 
 
 def plot_kdistance_curve(kth_distances: np.ndarray, k: int) -> None:
@@ -80,7 +78,7 @@ def plot_kdistance_curve(kth_distances: np.ndarray, k: int) -> None:
     plt.title("k-distance curve (PCA sample)")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.show()
+    return plt.gcf()
 
 
 def plot_dbscan_sweep_heatmaps(dbscan_results: pd.DataFrame) -> None:
@@ -100,4 +98,4 @@ def plot_dbscan_sweep_heatmaps(dbscan_results: pd.DataFrame) -> None:
     axes[1].set_xlabel("eps")
 
     plt.tight_layout()
-    plt.show()
+    return fig

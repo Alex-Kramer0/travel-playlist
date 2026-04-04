@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, QuantileTransformer
+from sklearn.decomposition import PCA
 
 AUDIO_FEATURE_COLS = [
     "danceability",
@@ -39,6 +40,18 @@ _RAW_TO_CLEAN = {
     "Acousticness":    "acousticness",
     "Instrumentalness": "instrumentalness",
 }
+
+CLUSTER_FEATURE_COLS = [
+    "danceability",
+    "energy",
+    "loudness",
+    "speechiness",
+    "acousticness",
+    "liveness",
+    "valence",
+]
+
+SKEWED_COLS = ["speechiness", "instrumentalness", "liveness"]
 
 _DROP_PREFIXES = ("Good for", "Similar Artist", "Similar Song", "Similarity Score")
 
@@ -117,6 +130,17 @@ def remove_outliers(
     return clean_df, clean_features
 
 
+def log_transform_skewed(
+    feature_df: pd.DataFrame,
+    skewed_cols: list[str] = SKEWED_COLS,
+) -> pd.DataFrame:
+    df = feature_df.copy()
+    for col in skewed_cols:
+        if col in df.columns:
+            df[col] = np.log1p(df[col])
+    return df
+
+
 def scale_features(
     feature_df: pd.DataFrame,
     feature_cols: list[str] = AUDIO_FEATURE_COLS,
@@ -125,6 +149,31 @@ def scale_features(
     scaled = scaler.fit_transform(feature_df)
     scaled_df = pd.DataFrame(scaled, columns=feature_cols)
     return scaled_df, scaler
+
+
+def quantile_transform(
+    feature_df: pd.DataFrame,
+    feature_cols: list[str] = CLUSTER_FEATURE_COLS,
+    random_state: int = 42,
+) -> tuple[pd.DataFrame, QuantileTransformer]:
+    qt = QuantileTransformer(output_distribution='normal', random_state=random_state)
+    transformed = qt.fit_transform(feature_df[feature_cols])
+    qt_df = pd.DataFrame(transformed, columns=feature_cols)
+    return qt_df, qt
+
+
+def pca_reduce(
+    scaled_df: pd.DataFrame,
+    n_components: int = 3,
+    random_state: int = 42,
+) -> tuple[pd.DataFrame, PCA]:
+    pca = PCA(n_components=n_components, random_state=random_state)
+    components = pca.fit_transform(scaled_df)
+    columns = [f"PC{i + 1}" for i in range(n_components)]
+    pca_df = pd.DataFrame(components, columns=columns)
+    explained = pca.explained_variance_ratio_.sum()
+    print(f"PCA: {n_components} components capture {explained:.1%} of variance")
+    return pca_df, pca
 
 
 def build_dataset(
