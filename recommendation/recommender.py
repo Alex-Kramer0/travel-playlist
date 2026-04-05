@@ -44,25 +44,30 @@ _DEFAULT_WEIGHTS = {
 
 def _lyrics_score(
     df: pd.DataFrame,
-    location_terms: list[str],
+    keywords: list[str],
     lyrics_col: str = "lyrics",
-) -> np.ndarray:
+) -> tuple[np.ndarray, list[list[str]]]:
     """
-    Returns a score in [0, 1] for each track based on how many location
-    terms appear in its lyrics. Multiple matches accumulate additively,
-    then the result is clipped to 1.
+    Returns a score in [0, 1] for each track based on how many of the
+    Airbnb keywords appear in its lyrics. Multiple matches accumulate
+    additively, then the result is clipped to 1.
+
+    Also returns a parallel list of matched keyword lists per track.
     """
     scores = np.zeros(len(df), dtype=float)
-    if not location_terms or lyrics_col not in df.columns:
-        return scores
+    matched_kws: list[list[str]] = [[] for _ in range(len(df))]
+    if not keywords or lyrics_col not in df.columns:
+        return scores, matched_kws
 
     lyrics_lower = df[lyrics_col].fillna("").str.lower()
-    for term in location_terms:
-        pattern = re.compile(r"\b" + re.escape(term.lower()) + r"\b")
-        matches = lyrics_lower.str.contains(pattern, regex=True).to_numpy(dtype=float)
-        scores += matches
+    for kw in keywords:
+        pattern = re.compile(r"\b" + re.escape(kw.lower()) + r"\b")
+        mask = lyrics_lower.str.contains(pattern, regex=True).to_numpy(dtype=bool)
+        scores += mask.astype(float)
+        for i in np.where(mask)[0]:
+            matched_kws[i].append(kw)
 
-    return np.clip(scores, 0.0, 1.0)
+    return np.clip(scores, 0.0, 1.0), matched_kws
 
 
 def _emotion_score(
@@ -184,7 +189,7 @@ def recommend(
     audio_target = resolved["audio_target"]
     location_terms = resolved["location_terms"]
 
-    s_lyrics = _lyrics_score(df, location_terms, lyrics_col)
+    s_lyrics, matched_kws = _lyrics_score(df, keywords, lyrics_col)
     s_emotion = _emotion_score(df, emotions, emotion_col)
     s_audio = _audio_cosine_score(scaled_df, audio_target, feature_cols)
     s_cluster = _cluster_boost_score(df, scaled_df, audio_target, cluster_col, feature_cols)
@@ -196,12 +201,16 @@ def recommend(
         + w["cluster"] * s_cluster
     )
 
-    result = df[["track_name", "artist", "genre", "emotion", cluster_col]].copy()
+    meta_cols = ["track_name", "artist", "genre", "emotion", cluster_col]
+    if lyrics_col in df.columns:
+        meta_cols.append(lyrics_col)
+    result = df[meta_cols].copy()
     result["score"] = total
     result["score_lyrics"] = s_lyrics
     result["score_emotion"] = s_emotion
     result["score_audio"] = s_audio
     result["score_cluster"] = s_cluster
+    result["matched_keywords"] = [", ".join(kws) for kws in matched_kws]
     for col in feature_cols:
         if col in df.columns:
             result[col] = df[col].values

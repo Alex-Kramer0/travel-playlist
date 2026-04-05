@@ -123,6 +123,35 @@ url_input = st.text_input(
 
 top_n = st.slider("Number of tracks", min_value=5, max_value=50, value=20)
 
+with st.expander("Advanced Settings — Layer Weights"):
+    st.caption(
+        "Adjust how much each recommendation layer contributes to the final score. "
+        "Values are automatically normalized so they sum to 100%."
+    )
+    col_w1, col_w2 = st.columns(2)
+    with col_w1:
+        w_lyrics = st.slider("Lyrics keyword match", 0.0, 1.0, 0.35, 0.05, key="w_lyrics")
+        w_emotion = st.slider("Emotion match", 0.0, 1.0, 0.25, 0.05, key="w_emotion")
+    with col_w2:
+        w_audio = st.slider("Audio similarity", 0.0, 1.0, 0.25, 0.05, key="w_audio")
+        w_cluster = st.slider("Cluster boost", 0.0, 1.0, 0.15, 0.05, key="w_cluster")
+
+    raw_total = w_lyrics + w_emotion + w_audio + w_cluster
+    if raw_total > 0:
+        nw = {
+            "lyrics": w_lyrics / raw_total,
+            "emotion": w_emotion / raw_total,
+            "audio": w_audio / raw_total,
+            "cluster": w_cluster / raw_total,
+        }
+    else:
+        nw = {"lyrics": 0.25, "emotion": 0.25, "audio": 0.25, "cluster": 0.25}
+
+    st.markdown(
+        f"**Normalized:** Lyrics {nw['lyrics']:.0%} · Emotion {nw['emotion']:.0%} · "
+        f"Audio {nw['audio']:.0%} · Cluster {nw['cluster']:.0%}"
+    )
+
 generate_clicked = st.button("Generate Playlist", type="primary", use_container_width=True)
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
@@ -177,6 +206,7 @@ if generate_clicked:
             df=clustered_df,
             scaled_df=scaled_df,
             top_n=top_n,
+            weights=nw,
         )
 
     # Step 4: Display playlist
@@ -217,8 +247,13 @@ if generate_clicked:
     fig, ax = plt.subplots(figsize=(11, 6))
     layers = ["score_lyrics", "score_emotion", "score_audio", "score_cluster"]
     colors = ["#4C72B0", "#DD8452", "#55A868", "#C44E52"]
-    labels = ["Lyrics (0.35)", "Emotion (0.25)", "Audio (0.25)", "Cluster (0.15)"]
-    weights = [0.35, 0.25, 0.25, 0.15]
+    labels = [
+        f"Lyrics ({nw['lyrics']:.0%})",
+        f"Emotion ({nw['emotion']:.0%})",
+        f"Audio ({nw['audio']:.0%})",
+        f"Cluster ({nw['cluster']:.0%})",
+    ]
+    weights = [nw["lyrics"], nw["emotion"], nw["audio"], nw["cluster"]]
 
     bottoms = np.zeros(len(top10))
     for layer, color, label, w in zip(layers, colors, labels, weights):
