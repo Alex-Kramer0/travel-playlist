@@ -454,17 +454,6 @@ emotion_df = pd.DataFrame(
 
 st.bar_chart(emotion_df.set_index("Emotion"))
 
-with st.expander("How to customize this section"):
-    st.write(
-        """
-Replace the placeholder scores above with your actual NRC EmoLex output.
-You could also add:
-- normalized scores
-- before/after examples
-- explanation of how emotion maps to playlist mood
-"""
-    )
-
 st.divider()
 
 
