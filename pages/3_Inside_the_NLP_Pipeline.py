@@ -31,7 +31,7 @@ def method_card(title, why_tried, worked, limitations, takeaway):
 
 
 # -----------------------------Intro-----------------------------
-st.title("🧠 Inside the NLP Pipeline")
+st.title("Inside the NLP Pipeline")
 st.markdown(
     """
 This page explains how the NLP pipeline evolved from baseline keyword extraction methods
@@ -43,7 +43,7 @@ listing descriptions.
 st.info(
     """
 **Pipeline overview:** Airbnb Description → Keyword / Vibe Extraction → Emotion Scoring
-(NRC EmoLex) → Playlist Generation
+(NRC EmoLex) → Handoff to Spotify Pipeline
 """
 )
 
@@ -248,18 +248,14 @@ To illustrate the differences between methods, we can apply each technique to th
 )
 
 st.markdown("### Example Listing Description")
-example_description = st.text_area(
-    "Alex pull an Airbnb listing description here",
-    value="[PLACEHOLDER] Add Airbnb description here.",
-    height=180,
-)
+st.markdown("Rustic canyon getaway in clean-air, rural Malibu mountains! <br /><br />Private gravel entrance w parking.<br />Adjacent to incredible canyon & ocean views, singing birds, hiking.<br /><br />Quiet neighborhood for heavenly sleeps. One queen bed, One trundle bed with two single mattresses, one air mattress. A/C for summer, space heater for winter. Kitchenette (no kitchen sink) and full bath.<br /><br />Highlights!<br />Claw-foot Tub<br />Mountain Sunsets<br />Amazon Echo<br />Wild Bird families & bunnies<br />Hiking at end of road <br />2.5 miles to the beach")
 
 st.markdown("### Extraction Results by Method")
 
 example_tab1, example_tab2, example_tab3, example_tab4, example_tab5 = st.tabs(
     [
-        "TF-IDF Output",
-        "POS + TF-IDF Output",
+        "TF-IDF Output", #done
+        "POS + TF-IDF Output", # done
         "POS Keyword Output",
         "Zero-Shot Output",
         "Final Pipeline Output",
@@ -270,57 +266,98 @@ with example_tab1:
     st.markdown("**Extracted keywords / phrases**")
     st.code(
         """
-PLACEHOLDER:
-- keyword 1
-- keyword 2
-- keyword 3
+TF-IDF Unigrams Keywords:
+- one
+- mattress
+- hiking
+- mountain
+- bird
+
+TF-IDF Bigrams Keywords:
+- winer kitchenette
+- entrance adjacent
+- kitchenette sink
+- incredible canyon
+- hiking quiet
+
+TF-IDF Unigrams + Bigrams Keywords:
+- one
+- canyon
+- mattress
+- mountain
+- bird
+
 """,
         language="text",
     )
     st.markdown("**Commentary**")
-    st.write("PLACEHOLDER: Add notes on why this output was too generic / noisy.")
+    st.write("This output was too generic and noisy, capturing many common words that don't convey the unique vibe of the listing. We saw the strongest results with the bigrams apprograch, but it still included irrelevant phrases and missed key vibe elements.")
 
 with example_tab2:
     st.markdown("**Extracted keywords / phrases**")
     st.code(
         """
-PLACEHOLDER:
-- keyword 1
-- keyword 2
-- keyword 3
+POS + TF-IDF Unigrams Keywords:
+- wild_bird
+- tub_mountain
+- single_mattress
+- rustic_canyon
+- rural_malibu
+
+POS + TF-IDF Bigrams Keywords:
+- tub_mountain wild_bird
+- single_mattresses tub_mountain
+- rustic_canyon rural_malibu
+- rural_malibu gravel_entrance
+- quiet_neighborhood single_mattresses
+
+POS + TF-IDF Unigrams + Bigrams Keywords:
+- wild_bird
+- quiet_neighborhood single_mattresses
+- gravel_entrance incredible_canyon
+- incredible_canyon ocean_views
+- incredible_canyon
+
 """,
         language="text",
     )
     st.markdown("**Commentary**")
-    st.write("PLACEHOLDER: Add notes on what improved and what still fell short.")
+    st.write("TDIF did not work even with POS filtering -- because all these listings are so similar. TF-IDF is great for recognizing unique words in a dataset quickly, however we are looking to extract keywords that might be common for some cities. For the city in Flordia we picked, we are hoping to pull 'Ocean View' as a vibe keyword -- TF-IDF won't value 'Ocean View' if most listings contain those words.")
 
 with example_tab3:
     st.markdown("**Extracted keywords / phrases**")
     st.code(
         """
-PLACEHOLDER:
-- keyword 1
-- keyword 2
-- keyword 3
+POS Keywords:
+- mountain
+- canyon
+- neighborhood
+- sleeps
+- tub 
+- families 
+
 """,
         language="text",
     )
     st.markdown("**Commentary**")
-    st.write("PLACEHOLDER: Add notes on why this felt simpler and better.")
+    st.write("The method uses a rule-based NLP pipeline that combines normalization, domain-specific stopword filtering, POS-tag-based adjective–noun phrase extraction, lemmatization, and heuristic semantic pruning to identify high-signal descriptive phrases representing listing ambience or “vibe.” " \
+    "The downside is that it may miss some nuanced or less frequent vibe indicators. Additionally it requires setting up large hand-crafted stopword lists and rules, which may need to be adjusted for different markets or listing styles.")
 
 with example_tab4:
     st.markdown("**Predicted vibe labels / classification outputs**")
     st.code(
         """
-PLACEHOLDER:
-- label 1
-- label 2
-- label 3
+Zero Shot Keywords / Phrases:
+- Rustic Canyon
+- Rural Malibu
+- Incredible Canyon
+- Ocean Views
+- Quiet Neighborhood
 """,
         language="text",
     )
     st.markdown("**Commentary**")
-    st.write("PLACEHOLDER: Add notes on why this better captured semantic vibe.")
+    st.write("Zero Shot is better for vibe-based keyword extraction because it uses contextual understanding to map text to meaningful, human-defined themes (like “cozy” or “luxury”) rather than relying on surface-level word frequency, resulting in more intuitive and experience-focused keywords.")
 
 with example_tab5:
     col1, col2 = st.columns(2)
@@ -329,10 +366,12 @@ with example_tab5:
         st.markdown("**Final extracted keywords / vibe labels**")
         st.code(
             """
-PLACEHOLDER:
-- label / keyword 1
-- label / keyword 2
-- label / keyword 3
+Final Keywords / Vibe Labels:
+- Rustic Canyon
+- Rural Malibu
+- Incredible Canyon
+- Ocean Views
+- Quiet Neighborhood
 """,
             language="text",
         )
@@ -342,10 +381,10 @@ PLACEHOLDER:
         st.code(
             """
 PLACEHOLDER:
-joy: 0.00
-trust: 0.00
-anticipation: 0.00
-surprise: 0.00
+joy: 0.09
+trust: 0.06
+anticipation: 0.05
+surprise: 0.03
 sadness: 0.00
 fear: 0.00
 anger: 0.00
@@ -356,8 +395,7 @@ disgust: 0.00
 
     st.markdown("**Playlist interpretation**")
     st.write(
-        "PLACEHOLDER: Add a short explanation of how these keywords and emotions would shape the playlist."
-    )
+        "The NRC Emotion Lexicon works by matching words in a text to a predefined dictionary where each word is associated with specific emotions (like joy, trust, or fear), then counting how frequently those emotion-linked words appear to produce an overall emotional profile.")
 
 st.divider()
 
