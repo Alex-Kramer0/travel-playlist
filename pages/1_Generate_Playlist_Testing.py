@@ -41,6 +41,7 @@ from Airbnb.nlp_pipeline import (
 )
 from auth import SpotifyAuthError
 from playlists import create_playlist, add_tracks_to_playlist, resolve_track_uris
+from evaluation import evaluate_playlist, top_k_popular_baseline
 
 # ── Emotion Themes Set up ───────────────────────────────────────────────────────────────
 EMOTION_THEMES = {
@@ -689,6 +690,62 @@ if generate_clicked:
     ax.invert_yaxis()
     fig.tight_layout()
     st.pyplot(fig)
+
+    # Step 6: Playlist evaluation vs popularity baseline
+    st.markdown("---")
+    st.markdown("### Playlist Evaluation")
+    st.caption(
+        "Comparing your generated playlist against a baseline of the "
+        f"top {top_n} most popular tracks in the dataset."
+    )
+
+    baseline = top_k_popular_baseline(clustered_df, k=top_n)
+    metrics_ours = evaluate_playlist(playlist)
+    metrics_base = evaluate_playlist(baseline)
+
+    col_m1, col_m2 = st.columns(2)
+
+    with col_m1:
+        delta_ad = metrics_ours["audio_diversity"] - metrics_base["audio_diversity"]
+        st.metric(
+            label="Intra-Playlist Audio Diversity",
+            value=f"{metrics_ours['audio_diversity']:.4f}",
+            delta=f"{delta_ad:+.4f} vs baseline",
+            delta_color="normal",
+            help="Mean pairwise cosine distance (1 − similarity) between all track audio vectors. Higher = more diverse.",
+        )
+
+    with col_m2:
+        delta_ge = metrics_ours["genre_entropy"] - metrics_base["genre_entropy"]
+        st.metric(
+            label="Genre Entropy",
+            value=f"{metrics_ours['genre_entropy']:.4f}",
+            delta=f"{delta_ge:+.4f} vs baseline",
+            delta_color="normal",
+            help="Shannon entropy over genre distribution. Higher = broader genre coverage.",
+        )
+
+    with st.expander("Baseline details (Top-K Popular)", expanded=False):
+        base_cols = ["track_name", "artist", "genre", "popularity"]
+        base_available = [c for c in base_cols if c in baseline.columns]
+        st.dataframe(baseline[base_available], hide_index=True)
+
+    # Side-by-side bar charts (separate y-axes)
+    fig_eval, (ax_ad, ax_ge) = plt.subplots(1, 2, figsize=(10, 4))
+
+    labels = ["Your Playlist", "Top-K Popular"]
+    colors = ["#1DB954", "#B3B3B3"]
+
+    ax_ad.bar(labels, [metrics_ours["audio_diversity"], metrics_base["audio_diversity"]], color=colors)
+    ax_ad.set_ylabel("Mean Pairwise Cosine Distance")
+    ax_ad.set_title("Intra-Playlist Audio Diversity")
+
+    ax_ge.bar(labels, [metrics_ours["genre_entropy"], metrics_base["genre_entropy"]], color=colors)
+    ax_ge.set_ylabel("Shannon Entropy (nats)")
+    ax_ge.set_title("Genre Entropy")
+
+    fig_eval.tight_layout()
+    st.pyplot(fig_eval)
 
 
 # ── Save to Spotify section ──────────────────────────────────────────────────
