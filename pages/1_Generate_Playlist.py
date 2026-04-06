@@ -94,10 +94,10 @@ EMOTION_THEMES = {
         "text": "#FAFAFA",
     },
     "default": {
-        "primary": "#1DB954",
-        "secondary": "#1a1a2e",
-        "accent": "#2EC4B6",
-        "text": "#FAFAFA",
+        "primary": "#0e1117",
+        "secondary": "#ff4b4b",
+        "accent": "#262730",
+        "text": "#fafafa",
     },
 }
 
