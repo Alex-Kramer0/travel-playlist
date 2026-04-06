@@ -92,17 +92,11 @@ EMOTION_THEMES = {
         "secondary": "#283618",
         "accent": "#A7C957",
         "text": "#FAFAFA",
-    },
-    "default": {
-        "primary": "#0e1117",
-        "secondary": "#ff4b4b",
-        "accent": "#262730",
-        "text": "#fafafa",
-    },
+    }
 }
 
 def apply_emotion_theme(emotion: str | None):
-    if not emotion or emotion.lower() == "default":
+    if not emotion:
         return
 
     theme = EMOTION_THEMES.get((emotion or "").lower(), EMOTION_THEMES["default"])
