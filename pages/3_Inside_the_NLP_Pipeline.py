@@ -1,8 +1,8 @@
+
 import streamlit as st
 import pandas as pd
 
 st.set_page_config(page_title="NLP Pipeline", layout="wide")
-
 
 # ------------Helper functions-----------------
 def section_header(title: str, subtitle: str | None = None):
@@ -42,8 +42,8 @@ listing descriptions.
 
 st.info(
     """
-**Pipeline overview:** Airbnb Description → Keyword / Vibe Extraction → Emotion Scoring
-(NRC EmoLex) → Handoff to Spotify Pipeline
+**Pipeline overview:** Airbnb Description → POS Keyword Extraction → Zero-Shot Emotion Classification
+→ Handoff to Spotify Pipeline
 """
 )
 
@@ -71,7 +71,7 @@ with col1:
 - Capture listing **vibe**, not just statistical uniqueness  
 - Preserve meaningful phrases and descriptive language  
 - Reduce generic filler terms  
-- Produce outputs that can be used downstream for **emotion analysis** and **playlist generation**
+- Produce outputs that can be used downstream for **emotion classification** and **playlist generation**
 """
     )
 
@@ -96,11 +96,12 @@ section_header(
     "Below is the progression of techniques we tried while refining the NLP pipeline."
 )
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
     [
-        "TF-IDF",
-        "POS + TF-IDF",
+        "TF-IDF Keyword Extraction",
+        "POS + TF-IDF Mixed Approach",
         "POS Keyword Extraction",
+        "NRC EmoLex",
         "Zero-Shot Classification",
         "Comparison Table",
     ]
@@ -181,55 +182,124 @@ meaningful descriptive words and phrases without relying as heavily on corpus ra
 """,
         limitations="""
 - May still require hand-tuning depending on text variation
-- Less flexible than a semantic classification approach
+- Rule-based logic can miss subtle context or implied meaning
 """,
         takeaway="""
-This approach gave better results with less complexity, which made it a strong step
-forward in the pipeline.
+This approach became one of the two final components in the pipeline because it gave
+clean, interpretable vibe descriptors with less complexity than TF-IDF-based approaches.
 """,
     )
 
 with tab4:
     method_card(
-        title="Zero-Shot Text Classification",
+        title="NRC EmoLex",
         why_tried="""
-We needed a way to identify higher-level vibe concepts without building a manually
-labeled training dataset. Zero-shot classification allowed us to map listing text
-to meaningful semantic labels.
+We explored NRC EmoLex as a lexicon-based way to estimate emotional tone by matching
+words in a listing description to a predefined dictionary of emotion-associated terms.
 """,
         worked="""
-- Captured semantic meaning better than TF-IDF approaches
-- Flexible and scalable
-- No custom labeled dataset required
-- Much closer to the actual vibe-extraction goal
+- Easy to understand and explain
+- Lightweight compared with model-based methods
+- Useful for testing whether listing descriptions contain emotion-linked language
+- Provides a transparent, dictionary-based baseline for emotion extraction
 """,
         limitations="""
-- Depends on candidate label design
-- Can be more computationally expensive than simpler extraction methods
-- Outputs still need validation and interpretation
+- Only detects emotions when the exact or closely related lexicon words appear
+- Struggles with context, nuance, and multi-word meaning
+- Misses implied emotional tone when descriptions are descriptive rather than explicitly emotional
+- Less flexible than model-based classification for this use case
 """,
         takeaway="""
-Zero-shot classification became the strongest fit for the final NLP pipeline because
-it better captured the atmosphere and intent of the descriptions.
+NRC EmoLex was useful as a baseline for emotion extraction, but it was not strong enough
+to serve as the final emotion layer for Airbnb vibe interpretation.
 """,
     )
 
+    st.markdown("#### How NRC EmoLex Works")
+    st.markdown(
+        """
+NRC EmoLex is a **lexicon-based emotion detection method**. It uses a predefined dictionary
+where individual words are associated with one or more emotions such as **joy, trust,
+anticipation, fear, sadness, anger, disgust, and surprise**.
+
+In practice, the method:
+- tokenizes the text into words
+- checks whether each word appears in the NRC emotion lexicon
+- retrieves the emotion tags associated with matched words
+- aggregates those matches to produce an overall emotional profile for the text
+
+This makes the method transparent and interpretable, but it also means the quality of the
+output depends heavily on exact word overlap with the lexicon. For Airbnb descriptions,
+that often limited its ability to capture implied mood or atmosphere.
+"""
+    )
+
 with tab5:
+    method_card(
+        title="Zero-Shot Emotion Classification",
+        why_tried="""
+We needed a way to extract the emotional tone of a listing without hand-labeling a training
+dataset. Zero-shot classification let us test whether a description aligned with candidate
+emotion labels such as calm, cozy, joyful, adventurous, or peaceful.
+""",
+        worked="""
+- Captured emotional tone more flexibly than a dictionary lookup
+- Worked even when the text implied an emotion without explicitly naming it
+- No custom labeled dataset required
+- Scaled well across different listing styles and cities
+""",
+        limitations="""
+- Depends on the design and quality of candidate labels
+- Can be more computationally expensive than lexicon-based methods
+- Outputs still require interpretation and validation
+""",
+        takeaway="""
+Zero-shot classification became the final emotion method because it better captured the
+felt atmosphere of the descriptions, not just isolated emotion words.
+""",
+    )
+
+    st.markdown("#### What Zero-Shot Classification Is Actually Doing")
+    st.markdown(
+        """
+In this project, zero-shot classification is **not primarily being used to generate vibe keywords**.
+It is being used to **classify the emotional tone of the listing text**.
+
+Instead of looking for exact emotion words, the model compares the full listing description
+against a set of candidate emotion labels and estimates which emotions best fit the text
+based on contextual meaning.
+
+That means it can identify emotional themes such as:
+- calm
+- cozy
+- adventurous
+- romantic
+- peaceful
+
+even when those exact words do not appear in the description. This made it a stronger fit
+than NRC EmoLex for our final pipeline because it captures **implied emotion and atmosphere**
+rather than just direct word matches.
+"""
+    )
+
+with tab6:
     comparison_df = pd.DataFrame(
         {
             "Method": [
                 "TF-IDF",
                 "POS + TF-IDF",
                 "POS Keyword Extraction",
+                "NRC EmoLex",
                 "Zero-Shot Classification",
             ],
-            "Interpretability": ["Medium", "Medium-High", "High", "High"],
-            "Vibe Relevance": ["Low", "Medium", "High", "Very High"],
-            "Complexity": ["Low", "Medium", "Low", "Medium"],
+            "Interpretability": ["Medium", "Medium-High", "High", "High", "High"],
+            "Vibe Relevance": ["Low", "Medium", "High", "Medium", "Very High"],
+            "Complexity": ["Low", "Medium", "Low", "Low", "Medium"],
             "Role in Project": [
                 "Baseline",
                 "Refinement Step",
-                "Strong Candidate",
+                "Final Core Method",
+                "Tested but Not Final",
                 "Final Core Method",
             ],
         }
@@ -239,7 +309,7 @@ with tab5:
 st.divider()
 
 
-# -----------------------------Example 
+# -----------------------------Example
 section_header(
     "Example Across Methods",
     """
@@ -248,16 +318,18 @@ To illustrate the differences between methods, we can apply each technique to th
 )
 
 st.markdown("### Example Listing Description")
-st.markdown("Rustic canyon getaway in clean-air, rural Malibu mountains! <br /><br />Private gravel entrance w parking.<br />Adjacent to incredible canyon & ocean views, singing birds, hiking.<br /><br />Quiet neighborhood for heavenly sleeps. One queen bed, One trundle bed with two single mattresses, one air mattress. A/C for summer, space heater for winter. Kitchenette (no kitchen sink) and full bath.<br /><br />Highlights!<br />Claw-foot Tub<br />Mountain Sunsets<br />Amazon Echo<br />Wild Bird families & bunnies<br />Hiking at end of road <br />2.5 miles to the beach")
+st.markdown(
+    "Rustic canyon getaway in clean-air, rural Malibu mountains! <br /><br />Private gravel entrance w parking.<br />Adjacent to incredible canyon & ocean views, singing birds, hiking.<br /><br />Quiet neighborhood for heavenly sleeps. One queen bed, One trundle bed with two single mattresses, one air mattress. A/C for summer, space heater for winter. Kitchenette (no kitchen sink) and full bath.<br /><br />Highlights!<br />Claw-foot Tub<br />Mountain Sunsets<br />Amazon Echo<br />Wild Bird families & bunnies<br />Hiking at end of road <br />2.5 miles to the beach",
+    unsafe_allow_html=True
+)
 
 st.markdown("### Extraction Results by Method")
 
-example_tab1, example_tab2, example_tab3, example_tab4, example_tab5 = st.tabs(
+example_tab1, example_tab2, example_tab3, example_tab4 = st.tabs(
     [
-        "TF-IDF Output", #done
-        "POS + TF-IDF Output", # done
+        "TF-IDF Output",
+        "POS + TF-IDF Output",
         "POS Keyword Output",
-        "Zero-Shot Output",
         "Final Pipeline Output",
     ]
 )
@@ -286,12 +358,13 @@ TF-IDF Unigrams + Bigrams Keywords:
 - mattress
 - mountain
 - bird
-
 """,
         language="text",
     )
     st.markdown("**Commentary**")
-    st.write("This output was too generic and noisy, capturing many common words that don't convey the unique vibe of the listing. We saw the strongest results with the bigrams apprograch, but it still included irrelevant phrases and missed key vibe elements.")
+    st.write(
+        "This output was too generic and noisy, capturing many common words that do not convey the unique vibe of the listing. We saw the strongest results with the bigram approach, but it still included irrelevant phrases and missed key atmosphere elements."
+    )
 
 with example_tab2:
     st.markdown("**Extracted keywords / phrases**")
@@ -317,12 +390,13 @@ POS + TF-IDF Unigrams + Bigrams Keywords:
 - gravel_entrance incredible_canyon
 - incredible_canyon ocean_views
 - incredible_canyon
-
 """,
         language="text",
     )
     st.markdown("**Commentary**")
-    st.write("TDIF did not work even with POS filtering -- because all these listings are so similar. TF-IDF is great for recognizing unique words in a dataset quickly, however we are looking to extract keywords that might be common for some cities. For the city in Flordia we picked, we are hoping to pull 'Ocean View' as a vibe keyword -- TF-IDF won't value 'Ocean View' if most listings contain those words.")
+    st.write(
+        "TF-IDF still underperformed even after POS filtering because many Airbnb listings share similar vocabulary. While TF-IDF is useful for identifying statistically distinctive language, our goal was to preserve meaningful vibe phrases that may be common within a market, such as 'ocean view.'"
+    )
 
 with example_tab3:
     st.markdown("**Extracted keywords / phrases**")
@@ -333,21 +407,21 @@ POS Keywords:
 - canyon
 - neighborhood
 - sleeps
-- tub 
-- families 
-
+- tub
+- families
 """,
         language="text",
     )
     st.markdown("**Commentary**")
-    st.write("The method uses a rule-based NLP pipeline that combines normalization, domain-specific stopword filtering, POS-tag-based adjective–noun phrase extraction, lemmatization, and heuristic semantic pruning to identify high-signal descriptive phrases representing listing ambience or “vibe.” " \
-    "The downside is that it may miss some nuanced or less frequent vibe indicators. Additionally it requires setting up large hand-crafted stopword lists and rules, which may need to be adjusted for different markets or listing styles.")
+    st.write(
+        "This method uses a rule-based NLP pipeline that combines normalization, domain-specific stopword filtering, POS-tag-based phrase extraction, lemmatization, and heuristic pruning to identify high-signal descriptive terms representing listing ambience or vibe. It is interpretable and lightweight, though it can still miss more nuanced signals."
+    )
 
 with example_tab4:
-    st.markdown("**Predicted vibe labels / classification outputs**")
+    st.markdown("**Final POS keyword output**")
     st.code(
-        """
-Zero Shot Keywords / Phrases:
+            """
+POS Keywords:
 - Rustic Canyon
 - Rural Malibu
 - Incredible Canyon
@@ -355,47 +429,12 @@ Zero Shot Keywords / Phrases:
 - Quiet Neighborhood
 """,
         language="text",
-    )
-    st.markdown("**Commentary**")
-    st.write("Zero Shot is better for vibe-based keyword extraction because it uses contextual understanding to map text to meaningful, human-defined themes (like “cozy” or “luxury”) rather than relying on surface-level word frequency, resulting in more intuitive and experience-focused keywords.")
-
-with example_tab5:
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("**Final extracted keywords / vibe labels**")
-        st.code(
-            """
-Final Keywords / Vibe Labels:
-- Rustic Canyon
-- Rural Malibu
-- Incredible Canyon
-- Ocean Views
-- Quiet Neighborhood
-""",
-            language="text",
-        )
-
-    with col2:
-        st.markdown("**Emotion scores (NRC EmoLex)**")
-        st.code(
-            """
-PLACEHOLDER:
-joy: 0.09
-trust: 0.06
-anticipation: 0.05
-surprise: 0.03
-sadness: 0.00
-fear: 0.00
-anger: 0.00
-disgust: 0.00
-""",
-            language="text",
         )
 
     st.markdown("**Playlist interpretation**")
     st.write(
-        "The NRC Emotion Lexicon works by matching words in a text to a predefined dictionary where each word is associated with specific emotions (like joy, trust, or fear), then counting how frequently those emotion-linked words appear to produce an overall emotional profile.")
+        "Together, the POS keyword layer tells us what is materially present in the listing, while zero-shot emotion classification tells us how the stay is likely to feel. That combination creates a more useful handoff into playlist generation than either method alone."
+    )
 
 st.divider()
 
@@ -403,69 +442,51 @@ st.divider()
 # -----------------------------Final Pipeline
 section_header(
     "Final NLP Pipeline",
-    "The current workflow combines semantic keyword extraction with emotion scoring."
+    "The current workflow combines interpretable keyword extraction with model-based emotion classification."
 )
 
 st.markdown(
     """
 1. **Ingest Airbnb listing description**  
 2. **Clean and preprocess text**  
-3. **Apply Zero-Shot Text Classification** to identify vibe-oriented labels  
-4. **Apply NRC EmoLex** to estimate emotional tone  
+3. **Apply POS Keyword Extraction** to identify descriptive vibe-related terms  
+4. **Apply Zero-Shot Emotion Classification** to estimate the emotional tone of the listing  
 5. **Pass keywords + emotions into the Spotify pipeline**    
 """
 )
 
 st.success(
     """
-**Why this works:** Zero-shot classification provides concept-level vibe labels,
-while NRC EmoLex adds emotional nuance. Together, they create a richer representation
-of the listing than keyword extraction alone.
+**Why this works:** POS keyword extraction captures concrete descriptive elements from the listing,
+while zero-shot emotion classification captures the emotional atmosphere those descriptions imply.
+Together, they create a richer and more useful representation for playlist generation.
 """
 )
-
-st.divider()
-
-
-# ------------------------ Emotion scoring
-section_header(
-    "Emotion Scoring with NRC EmoLex",
-    """
-Keywords capture what a listing is about, but emotion scoring helps capture how the listing feels.
-This layer adds emotional texture that supports playlist generation.
-"""
-)
-
-emotion_df = pd.DataFrame(
-    {
-        "Emotion": [
-            "Joy",
-            "Trust",
-            "Anticipation",
-            "Surprise",
-            "Sadness",
-            "Fear",
-            "Anger",
-            "Disgust",
-        ],
-        "Score": [0.35, 0.42, 0.28, 0.10, 0.05, 0.03, 0.02, 0.01],  # placeholder values
-    }
-)
-
-st.bar_chart(emotion_df.set_index("Emotion"))
 
 st.divider()
 
 
 # -----------------------------
-# Section 6: Why this matters
+# Why this matters
 # -----------------------------
 section_header(
     "Why the NLP Layer Matters",
     """
-The quality of the playlist depends on the quality of the text interpretation.
-Better keyword extraction leads to better emotional inference, which leads to a
-playlist that feels more aligned with the stay experience.
+The NLP layer is the bridge between raw listing text and a playlist that feels intentional.
+Without it, the Spotify handoff would be based on unstructured copy rather than a meaningful
+representation of place, mood, and guest experience.
+"""
+)
+
+st.markdown("### What This Layer Contributes")
+st.markdown(
+    """
+This layer does more than extract words from text. It transforms a free-form Airbnb description
+into structured signals that downstream systems can actually use.
+
+- **POS keyword extraction** identifies the concrete descriptive elements of the stay, such as landscape, amenities, and atmosphere cues  
+- **Zero-shot emotion classification** interprets the emotional tone implied by the description, such as peaceful, cozy, romantic, or adventurous  
+- Together, these signals create a more complete representation of the listing than either raw text or basic keyword frequency alone  
 """
 )
 
@@ -477,16 +498,27 @@ with col1:
     st.write("Airbnb description")
 
 with col2:
-    st.markdown("**Keywords / Vibe**")
-    st.write("Extracted semantic labels")
+    st.markdown("**POS Keywords**")
+    st.write("Descriptive place and vibe terms")
 
 with col3:
-    st.markdown("**Emotions**")
-    st.write("Emotion profile from NRC EmoLex")
+    st.markdown("**Zero-Shot Emotions**")
+    st.write("Inferred emotional tone of the stay")
 
 with col4:
     st.markdown("**Playlist Direction**")
     st.write("Spotify recommendation logic")
+
+st.markdown("### Why This Improves the Product")
+st.markdown(
+    """
+- It reduces reliance on raw word frequency and instead captures **experience-level meaning**  
+- It makes playlist generation more consistent across listings with very different writing styles  
+- It separates **what the listing contains** from **how the listing feels**, which is useful for recommendation logic  
+- It creates outputs that are more interpretable for both technical and non-technical audiences  
+- It gives the downstream music pipeline cleaner, more structured inputs, which should improve playlist fit and explainability  
+"""
+)
 
 st.divider()
 
@@ -495,8 +527,9 @@ st.markdown(
     """
 - TF-IDF was useful as a baseline, but not ideal for extracting listing vibe  
 - POS filtering improved quality by reducing generic language  
-- Simpler extraction methods gave more interpretable results  
-- Zero-shot classification best captured semantic atmosphere  
-- NRC EmoLex added emotional depth that improved downstream playlist generation  
+- POS keyword extraction became a final core method because it produced cleaner descriptive signals  
+- NRC EmoLex was helpful as a lexicon-based baseline for emotion extraction, but it was too limited for the final pipeline  
+- Zero-shot classification became the final emotion method because it better captured implied emotional atmosphere  
+- The final pipeline uses **POS keyword extraction + Zero-Shot emotion classification**
 """
 )
