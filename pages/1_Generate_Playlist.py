@@ -98,11 +98,11 @@ EMOTION_THEMES = {
 def apply_emotion_theme(emotion: str | None):
     if not emotion:
         return
-
-    theme = EMOTION_THEMES.get((emotion or "").lower(), EMOTION_THEMES["default"])
-    # apply color changes based on dominat emotion once generated
-    theme = EMOTION_THEMES.get((emotion or "").lower(), EMOTION_THEMES["default"])
-
+    
+    theme = EMOTION_THEMES.get(emotion.lower())
+    if not theme:
+        return
+        
     primary = theme["primary"]
     secondary = theme["secondary"]
     accent = theme["accent"]
