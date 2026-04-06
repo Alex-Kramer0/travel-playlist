@@ -102,6 +102,10 @@ EMOTION_THEMES = {
 }
 
 def apply_emotion_theme(emotion: str | None):
+    if not emotion or emotion.lower() == "default":
+        return
+
+    theme = EMOTION_THEMES.get((emotion or "").lower(), EMOTION_THEMES["default"])
     # apply color changes based on dominat emotion once generated
     theme = EMOTION_THEMES.get((emotion or "").lower(), EMOTION_THEMES["default"])
 
