@@ -403,12 +403,11 @@ with example_tab3:
     st.code(
         """
 POS Keywords:
-- mountain
-- canyon
-- neighborhood
-- sleeps
-- tub
-- families
+- Rustic Canyon
+- Rural Malibu
+- Incredible Canyon
+- Ocean Views
+- Quiet Neighborhood
 """,
         language="text",
     )
