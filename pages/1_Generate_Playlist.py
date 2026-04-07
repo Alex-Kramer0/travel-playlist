@@ -283,9 +283,12 @@ def apply_emotion_theme(emotion: str | None):
 st.set_page_config(page_title="Generate Playlist", page_icon="🎶", layout="wide")
 
 st.title("Generate Playlist")
-#apply_emotion_theme("default")
-current_emotion = st.session_state.get("current_emotion", "default")
-apply_emotion_theme(current_emotion)
+
+# Default to NO custom theme so Streamlit global theme is used
+if "current_emotion" not in st.session_state:
+    st.session_state["current_emotion"] = None
+
+apply_emotion_theme(st.session_state["current_emotion"])
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 SPOTIFY_CSV = PROJECT_ROOT / "spotify-clustering" / "dataset" / "spotify_dataset_lyrics_top50k.csv"
@@ -629,7 +632,8 @@ if generate_clicked:
     st.session_state["current_playlist"] = playlist
     st.session_state["current_listing_name"] = listing_data.get("name", "Airbnb Listing")
     st.session_state["current_listing_url"] = url_input.strip()
-    st.session_state["current_input_mode"] = "url"
+    st.session_state["current_input_mode"] = "url" if url_value else "description"
+    st.session_state["current_listing_url"] = url_value if url_value else ""
     st.session_state["playlist_feedback_saved"] = False
 
     # Reset the rating widget for a newly generated playlist
