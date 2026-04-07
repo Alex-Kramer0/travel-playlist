@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import silhouette_score, silhouette_samples, davies_bouldin_score, calinski_harabasz_score
+from sklearn.metrics import silhouette_score, silhouette_samples
 from sklearn.decomposition import PCA
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -48,16 +48,12 @@ if not SPOTIFY_CSV.exists():
 
 filt_df, scaled_all, cluster_scaled, qt_df, pca_df, pca_model, clusters, kmeans_model = _load_data()
 sil = silhouette_score(pca_df, clusters)
-db = davies_bouldin_score(pca_df, clusters)
-ch = calinski_harabasz_score(pca_df, clusters)
 
 with st.sidebar:
     st.metric("Tracks", f"{len(filt_df):,}")
     st.metric("Cluster Features", f"{len(CLUSTER_FEATURE_COLS)} → QT → PCA{N_PCA}")
     st.metric("k", K_FINAL)
     st.metric("Silhouette", f"{sil:.3f}", help="Higher is better (range -1 to 1)")
-    st.metric("Davies-Bouldin", f"{db:.3f}", help="Lower is better (0 = perfect)")
-    st.metric("Calinski-Harabasz", f"{ch:,.0f}", help="Higher is better")
 
 # --- Section 1: Elbow / Silhouette ---
 st.markdown("---")
@@ -74,14 +70,12 @@ def _compute_k_eval(_pca_df):
         np.random.seed(42)
         sub_idx = np.random.choice(len(_pca_df), min(5000, len(_pca_df)), replace=False)
         s = silhouette_score(_pca_df.iloc[sub_idx], lb[sub_idx])
-        d = davies_bouldin_score(_pca_df, lb)
-        c = calinski_harabasz_score(_pca_df, lb)
-        rows.append({"k": k, "inertia": km.inertia_, "silhouette": s, "davies_bouldin": d, "calinski_harabasz": c})
+        rows.append({"k": k, "inertia": km.inertia_, "silhouette": s})
     return pd.DataFrame(rows)
 
 K_EVAL = _compute_k_eval(pca_df)
 
-fig1, axes1 = plt.subplots(1, 3, figsize=(15, 4))
+fig1, axes1 = plt.subplots(1, 2, figsize=(10, 4))
 
 axes1[0].plot(K_EVAL["k"], K_EVAL["inertia"], marker="o", color="tab:blue")
 axes1[0].axvline(K_FINAL, color="red", ls="--", lw=1)
@@ -93,11 +87,6 @@ axes1[1].axvline(K_FINAL, color="red", ls="--", lw=1)
 axes1[1].set_xlabel("k"); axes1[1].set_ylabel("Silhouette")
 axes1[1].set_title("Silhouette Score — higher is better")
 
-axes1[2].plot(K_EVAL["k"], K_EVAL["davies_bouldin"], marker="D", color="tab:green")
-axes1[2].axvline(K_FINAL, color="red", ls="--", lw=1)
-axes1[2].set_xlabel("k"); axes1[2].set_ylabel("Davies-Bouldin")
-axes1[2].set_title("Davies-Bouldin Index — lower is better")
-
 for ax in axes1:
     ax.set_xticks(K_EVAL["k"])
 
@@ -107,7 +96,7 @@ st.pyplot(fig1)
 plt.close(fig1)
 
 st.dataframe(
-    K_EVAL.style.format({"inertia": "{:,.0f}", "silhouette": "{:.4f}", "davies_bouldin": "{:.3f}", "calinski_harabasz": "{:,.0f}"}),
+    K_EVAL.style.format({"inertia": "{:,.0f}", "silhouette": "{:.4f}"}),
     use_container_width=True, hide_index=True,
 )
 
