@@ -120,3 +120,12 @@ def recommender_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "keyword_embedder", stub)
     sys.modules.pop("recommender", None)
     return importlib.import_module("recommender")
+
+
+@pytest.fixture
+def airbnb_nlp_module(monkeypatch):
+    monkeypatch.setattr("nltk.download", lambda *args, **kwargs: True)
+    monkeypatch.setattr("nltk.corpus.stopwords.words", lambda lang: {"the", "and", "for"})
+
+    sys.modules.pop("Airbnb.nlp_pipeline", None)
+    return importlib.import_module("Airbnb.nlp_pipeline")
